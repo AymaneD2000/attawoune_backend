@@ -138,9 +138,15 @@ SIMPLE_JWT = {
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://127.0.0.1:3000'
+    default='http://localhost:3000,http://127.0.0.1:3000,https://attawoune-frontend-w7de.vercel.app'
 ).split(',')
 CORS_ALLOW_CREDENTIALS = True
+
+# CSRF Trusted Origins
+CSRF_TRUSTED_ORIGINS = [
+    'https://attawoune-frontend-w7de.vercel.app',
+    'https://attawoune-backend.onrender.com',
+]
 
 # API Documentation
 SPECTACULAR_SETTINGS = {
