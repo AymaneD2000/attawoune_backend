@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/teachers/views.py
+# hypothesis_version: 6.151.4
+
+['-semester', '-start_date', 'ADMIN', 'SECRETARY', 'STUDENT', 'TEACHER', 'assigned_date', 'contract_number', 'contract_type', 'contracts', 'course', 'course__code', 'course__name', 'course__program', 'course_assignments', 'create', 'created_at', 'department', 'department__faculty', 'employee_id', 'end_date', 'hire_date', 'is_active', 'is_primary', 'list', 'rank', 'retrieve', 'semester', 'specialization', 'start_date', 'status', 'teacher', 'teacher__department', 'teacher__employee_id', 'teacher__user', 'user', 'user__email', 'user__first_name', 'user__last_name']

@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/finance/urls.py
+# hypothesis_version: 6.151.4
+
+['dashboard/', 'expenses', 'finance-dashboard', 'salaries', 'student-balances', 'tuition-fees', 'tuition-payments']

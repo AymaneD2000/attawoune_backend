@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/university/admin.py
+# hypothesis_version: 6.151.4
+
+['academic_year', 'building', 'capacity', 'code', 'created_at', 'dean', 'department', 'end_date', 'faculty', 'has_computers', 'has_projector', 'head', 'is_active', 'is_available', 'is_current', 'level', 'name', 'order', 'semester_type', 'start_date', 'tuition_fee']

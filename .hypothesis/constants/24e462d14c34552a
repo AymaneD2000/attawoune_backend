@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/teachers/serializers.py
+# hypothesis_version: 6.151.4
+
+['ACTIVE', '__all__', 'assigned_date', 'base_salary', 'contract_number', 'contract_type', 'course', 'course.code', 'course.credits', 'course.name', 'course_code', 'course_name', 'department', 'department.code', 'department.name', 'department_name', 'document', 'employee_id', 'end_date', 'get_rank_display', 'get_status_display', 'hire_date', 'id', 'is_active', 'is_primary', 'office_location', 'rank', 'rank_display', 'semester', 'semester_display', 'specialization', 'start_date', 'status', 'status_display', 'teacher', 'teacher.employee_id', 'teacher_employee_id', 'teacher_name', 'user', 'user.email', 'user.get_full_name', 'user.phone', 'user_name']

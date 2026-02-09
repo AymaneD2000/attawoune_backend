@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/students/views.py
+# hypothesis_version: 6.151.4
+
+['-academic_year', '-recorded_at', 'ADMIN', 'PRESENT', 'PROMOTED', 'REPEATED', 'SECRETARY', 'STUDENT', 'TEACHER', 'academic_year', 'attendances', 'course_session', 'create', 'created', 'created_at', 'current_level', 'enrollment_date', 'enrollments', 'error', 'errors', 'is_active', 'level', 'list', 'message', 'new_level', 'post', 'program', 'program__department', 'record_bulk', 'recorded_at', 'recorded_by', 'remarks', 'retrieve', 'schedule', 'schedule__teacher', 'status', 'student', 'student__student_id', 'student__user', 'student_id', 'updated', 'user', 'user__email', 'user__first_name', 'user__last_name', 'Étudiant non trouvé']

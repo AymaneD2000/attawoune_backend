@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/core/permissions.py
+# hypothesis_version: 6.151.4
+
+['ACCOUNTANT', 'ADMIN', 'DEAN', 'SECRETARY', 'STUDENT', 'TEACHER', 'course', 'teacher_assignments', 'user']

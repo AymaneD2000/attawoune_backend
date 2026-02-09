@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/university/serializers.py
+# hypothesis_version: 6.151.4
+
+['ACTIVE', '__all__', 'academic_year', 'academic_year.name', 'academic_year_name', 'building', 'capacity', 'code', 'dean', 'dean.get_full_name', 'dean_name', 'department', 'department.code', 'department.name', 'department_name', 'departments_count', 'display_name', 'end_date', 'faculty', 'faculty.code', 'faculty.name', 'faculty_name', 'get_name_display', 'has_computers', 'has_projector', 'head', 'head.get_full_name', 'head_name', 'id', 'is_active', 'is_available', 'is_current', 'level', 'level_display', 'name', 'order', 'programs_count', 'semester_display', 'semester_type', 'semesters_count', 'start_date', 'students_count']

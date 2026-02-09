@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/students/models.py
+# hypothesis_version: 6.151.4
+
+[200, '-academic_year', 'ABSENT', 'ACTIVE', 'Abandonné', 'Absent', 'Actif', 'Année académique', "Contact d'urgence", 'DROPPED', "Date d'inscription", 'Diplômé', 'ENROLLED', 'EXCUSED', 'En retard', 'Enregistré par', 'Excusé', 'GRADUATED', 'Inscription', 'Inscriptions', 'Inscrit', 'LATE', 'Matricule', 'Niveau', 'Niveau actuel', 'Nom du tuteur', 'PRESENT', 'PROMOTED', 'Programme', 'Promu', 'Présence', 'Présences', 'Présent', 'REPEATED', 'Redoublant', 'Remarques', 'STUDENT', 'SUSPENDED', 'Statut', 'Suspendu', 'Séance de cours', 'TRANSFERRED', 'Transféré', 'Téléphone du tuteur', 'Utilisateur', 'academic_year', 'attendances', 'course_session', 'current_students', 'enrollments', 'recorded_attendances', 'role', 'student', 'student_id', 'student_profile', 'students', 'university.Level', 'university.Program', 'Étudiant', 'Étudiants']

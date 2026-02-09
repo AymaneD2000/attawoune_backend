@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/students/serializers.py
+# hypothesis_version: 6.151.4
+
+['PRESENT', '__all__', 'academic_year', 'academic_year.name', 'academic_year_name', 'course_name', 'course_session', 'course_session.date', 'current_level', 'emergency_contact', 'enrollment_date', 'get_status_display', 'guardian_name', 'guardian_phone', 'id', 'is_active', 'level', 'level_display', 'program', 'program.code', 'program.name', 'program_name', 'recorded_at', 'recorded_by', 'remarks', 'session_date', 'status', 'status_display', 'student', 'student.student_id', 'student_id', 'student_matricule', 'student_name', 'user', 'user.email', 'user.get_full_name', 'user.phone', 'user_name']

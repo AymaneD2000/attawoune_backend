@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/core/urls.py
+# hypothesis_version: 6.151.4
+
+['admin/', 'api/academics/', 'api/accounts/', 'api/auth/token/', 'api/docs/', 'api/finance/', 'api/redoc/', 'api/scheduling/', 'api/schema/', 'api/students/', 'api/teachers/', 'api/university/', 'apps.academics.urls', 'apps.accounts.urls', 'apps.finance.urls', 'apps.scheduling.urls', 'apps.students.urls', 'apps.teachers.urls', 'apps.university.urls', 'redoc', 'schema', 'swagger-ui', 'token_obtain_pair', 'token_refresh', 'token_verify']

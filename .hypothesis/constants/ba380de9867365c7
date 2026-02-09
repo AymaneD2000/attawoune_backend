@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/finance/admin.py
+# hypothesis_version: 6.151.4
+
+['academic_year', 'amount', 'approved_by', 'balance', 'base_salary', 'category', 'date', 'description', 'due_date', 'employee', 'installments_allowed', 'is_paid', 'month', 'net_salary', 'payment_date', 'payment_method', 'program', 'receipt_number', 'reference', 'status', 'student', 'total_due', 'total_paid', 'year']

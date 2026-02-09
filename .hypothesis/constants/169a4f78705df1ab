@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/accounts/admin.py
+# hypothesis_version: 6.151.4
+
+['-created_at', 'address', 'date_of_birth', 'email', 'fields', 'first_name', 'is_active', 'is_staff', 'last_name', 'phone', 'profile_picture', 'role', 'username']

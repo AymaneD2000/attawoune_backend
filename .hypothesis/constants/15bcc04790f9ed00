@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/accounts/views.py
+# hypothesis_version: 6.151.4
+
+['create', 'destroy', 'error', 'get', 'message', 'new_password', 'old_password', 'partial_update', 'post', 'role', 'update']

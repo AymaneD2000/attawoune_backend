@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/university/urls.py
+# hypothesis_version: 6.151.4
+
+['academic-years', 'classrooms', 'departments', 'faculties', 'levels', 'programs', 'semesters']

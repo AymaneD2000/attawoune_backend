@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/accounts/models.py
+# hypothesis_version: 6.151.4
+
+['-created_at', 'ACCOUNTANT', 'ADMIN', 'Administrateur', 'Adresse', 'Comptable', 'DEAN', 'Date de naissance', 'Doyen', 'Enseignant', 'Photo de profil', 'Rôle', 'SECRETARY', 'STUDENT', 'Secrétaire', 'TEACHER', 'Téléphone', 'Utilisateur', 'Utilisateurs', 'profiles/', 'Étudiant']

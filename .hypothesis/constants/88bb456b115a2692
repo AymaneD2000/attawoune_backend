@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/finance/views.py
+# hypothesis_version: 6.151.4
+
+['COMPLETED', 'PAID', 'PENDING', 'academic_year', 'amount', 'category', 'created_at', 'current_year', 'date', 'due_date', 'employee', 'error', 'month', 'net_balance', 'net_salary', 'payment_date', 'payment_method', 'program', 'receipt_number', 'reference', 'status', 'student', 'total', 'total_due', 'total_expenses', 'total_paid', 'total_salaries_paid', 'year']

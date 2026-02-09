@@ -1,0 +1,881 @@
+"""
+Property-based tests for finance serializers.
+
+These tests verify universal properties that should hold for all valid inputs.
+"""
+
+from hypothesis import given, strategies as st, settings
+from hypothesis.extra.django import TestCase
+from django.contrib.auth import get_user_model
+from django.utils import timezone
+from datetime import date, timedelta
+from decimal import Decimal
+import uuid
+from apps.finance.serializers import (
+    TuitionPaymentListSerializer,
+    TuitionPaymentDetailSerializer,
+    TuitionPaymentCreateSerializer,
+    TuitionFeeListSerializer,
+    TuitionFeeDetailSerializer,
+    TuitionFeeCreateSerializer,
+    StudentBalanceListSerializer,
+    StudentBalanceDetailSerializer,
+    SalaryListSerializer,
+    SalaryDetailSerializer,
+    SalaryCreateSerializer,
+    ExpenseListSerializer,
+    ExpenseDetailSerializer,
+    ExpenseCreateSerializer,
+)
+from apps.finance.models import (
+    TuitionPayment, TuitionFee, StudentBalance, Salary, Expense
+)
+from apps.university.models import (
+    AcademicYear, Faculty, Department, Level, Program
+)
+from apps.students.models import Student
+
+User = get_user_model()
+
+
+class TuitionPaymentSerializerPropertyTests(TestCase):
+    """Property tests for TuitionPayment serializers."""
+    
+    def setUp(self):
+        """Set up test data."""
+        # Create users with unique usernames
+        unique_id = str(uuid.uuid4())[:8]
+        self.accountant = User.objects.create_user(
+            username=f'accountant_payment_{unique_id}',
+            email=f'accountant_payment_{unique_id}@test.com',
+            password='testpass123',
+            role=User.Role.ACCOUNTANT,
+            first_name='Accountant',
+            last_name='Test'
+        )
+        
+        self.dean = User.objects.create_user(
+            username=f'dean_payment_{unique_id}',
+            email=f'dean_payment_{unique_id}@test.com',
+            password='testpass123',
+            role=User.Role.ADMIN,
+            first_name='Dean',
+            last_name='Test'
+        )
+        
+        # Create faculty and department
+        self.faculty = Faculty.objects.create(
+            name='Test Faculty',
+            code=f'TF{unique_id}',
+            dean=self.dean
+        )
+        self.department = Department.objects.create(
+            name='Test Department',
+            code=f'TD{unique_id}',
+            faculty=self.faculty,
+            head=self.dean
+        )
+        
+        # Create level and program
+        self.level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
+        self.program = Program.objects.create(
+            name='Test Program',
+            code=f'TP{unique_id}',
+            department=self.department,
+            level=self.level,
+            duration_years=3
+        )
+        
+        # Create academic year
+        self.academic_year = AcademicYear.objects.create(
+            name=f'2023-2024-{unique_id}',
+            start_date=date(2023, 9, 1),
+            end_date=date(2024, 6, 30),
+            is_current=False
+        )
+        
+        # Create student
+        self.student_user = User.objects.create_user(
+            username=f'student_payment_{unique_id}',
+            email=f'student_payment_{unique_id}@test.com',
+            password='testpass123',
+            role=User.Role.STUDENT,
+            first_name='Student',
+            last_name='Test'
+        )
+        self.student = Student.objects.create(
+            user=self.student_user,
+            student_id=f'STU{unique_id}',
+            program=self.program,
+            current_level=self.level,
+            enrollment_date=date.today()
+        )
+
+    @settings(max_examples=10)
+    @given(
+        amount=st.decimals(min_value=Decimal('100.00'), max_value=Decimal('10000.00'), places=2),
+        payment_method=st.sampled_from([choice[0] for choice in TuitionPayment.PaymentMethod.choices]),
+        status=st.sampled_from([choice[0] for choice in TuitionPayment.PaymentStatus.choices]),
+    )
+    def test_property_1_foreign_key_representation(self, amount, payment_method, status):
+        """
+        Feature: backend-api-implementation, Property 1: Foreign Key Representation
+        
+        **Validates: Requirements 1.8**
+        
+        For any model instance with foreign key relationships, when serialized,
+        the output should include readable representations (names, codes, or display values)
+        of the related objects, not just IDs.
+        """
+        # Create unique reference
+        reference = f'PAY{uuid.uuid4().hex[:10].upper()}'
+        
+        # Create tuition payment
+        payment = TuitionPayment.objects.create(
+            student=self.student,
+            academic_year=self.academic_year,
+            amount=amount,
+            payment_method=payment_method,
+            status=status,
+            reference=reference,
+            payment_date=date.today(),
+            received_by=self.accountant
+        )
+        
+        # Test list serializer
+        list_serializer = TuitionPaymentListSerializer(payment)
+        list_data = list_serializer.data
+        
+        # Verify readable representations are included
+        self.assertIn('student_name', list_data)
+        self.assertIn('student_matricule', list_data)
+        self.assertIn('academic_year_name', list_data)
+        self.assertIn('payment_method_display', list_data)
+        self.assertIn('status_display', list_data)
+        self.assertIn('received_by_name', list_data)
+        
+        # Verify values are correct
+        self.assertEqual(list_data['student_name'], self.student.user.get_full_name())
+        self.assertEqual(list_data['student_matricule'], self.student.student_id)
+        self.assertEqual(list_data['academic_year_name'], self.academic_year.name)
+        self.assertEqual(list_data['payment_method_display'], payment.get_payment_method_display())
+        self.assertEqual(list_data['status_display'], payment.get_status_display())
+        self.assertEqual(list_data['received_by_name'], self.accountant.get_full_name())
+        
+        # Test detail serializer
+        detail_serializer = TuitionPaymentDetailSerializer(payment)
+        detail_data = detail_serializer.data
+        
+        # Verify additional readable representations in detail view
+        self.assertIn('student_program', detail_data)
+
+    @settings(max_examples=10)
+    @given(
+        amount=st.decimals(min_value=Decimal('-1000.00'), max_value=Decimal('0.00'), places=2),
+    )
+    def test_property_2_validation_enforcement_negative_amount(self, amount):
+        """
+        Feature: backend-api-implementation, Property 2: Validation Enforcement
+        
+        **Validates: Requirements 1.9**
+        
+        For any invalid input data that violates model constraints or business rules,
+        the serializer should reject it and return detailed validation errors.
+        
+        Test case: Payment amount must be positive.
+        """
+        # Create unique reference
+        reference = f'PAY{uuid.uuid4().hex[:10].upper()}'
+        
+        # Try to create payment with negative or zero amount
+        data = {
+            'student': self.student.id,
+            'academic_year': self.academic_year.id,
+            'amount': str(amount),
+            'payment_method': 'CASH',
+            'status': 'COMPLETED',
+            'reference': reference,
+            'payment_date': date.today().isoformat(),
+            'received_by': self.accountant.id
+        }
+        
+        serializer = TuitionPaymentCreateSerializer(data=data)
+        
+        # Should be invalid due to non-positive amount
+        is_valid = serializer.is_valid()
+        self.assertFalse(is_valid)
+        
+        # Should have amount error
+        self.assertIn('amount', serializer.errors)
+
+    @settings(max_examples=10)
+    def test_property_2_validation_enforcement_duplicate_reference(self):
+        """
+        Feature: backend-api-implementation, Property 2: Validation Enforcement
+        
+        **Validates: Requirements 1.9**
+        
+        Test case: Payment reference must be unique.
+        """
+        # Create a payment with a reference
+        reference = f'PAY{uuid.uuid4().hex[:10].upper()}'
+        TuitionPayment.objects.create(
+            student=self.student,
+            academic_year=self.academic_year,
+            amount=Decimal('1000.00'),
+            payment_method='CASH',
+            status='COMPLETED',
+            reference=reference,
+            payment_date=date.today(),
+            received_by=self.accountant
+        )
+        
+        # Try to create another payment with the same reference
+        data = {
+            'student': self.student.id,
+            'academic_year': self.academic_year.id,
+            'amount': '500.00',
+            'payment_method': 'CASH',
+            'status': 'COMPLETED',
+            'reference': reference,
+            'payment_date': date.today().isoformat(),
+            'received_by': self.accountant.id
+        }
+        
+        serializer = TuitionPaymentCreateSerializer(data=data)
+        
+        # Should be invalid due to duplicate reference
+        is_valid = serializer.is_valid()
+        self.assertFalse(is_valid)
+        
+        # Should have reference error
+        self.assertIn('reference', serializer.errors)
+
+
+
+class TuitionFeeSerializerPropertyTests(TestCase):
+    """Property tests for TuitionFee serializers."""
+    
+    def setUp(self):
+        """Set up test data."""
+        # Create users with unique usernames
+        unique_id = str(uuid.uuid4())[:8]
+        self.dean = User.objects.create_user(
+            username=f'dean_fee_{unique_id}',
+            email=f'dean_fee_{unique_id}@test.com',
+            password='testpass123',
+            role=User.Role.ADMIN,
+            first_name='Dean',
+            last_name='Test'
+        )
+        
+        # Create faculty and department
+        self.faculty = Faculty.objects.create(
+            name='Test Faculty',
+            code=f'TF{unique_id}',
+            dean=self.dean
+        )
+        self.department = Department.objects.create(
+            name='Test Department',
+            code=f'TD{unique_id}',
+            faculty=self.faculty,
+            head=self.dean
+        )
+        
+        # Create level and program
+        self.level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
+        self.program = Program.objects.create(
+            name='Test Program',
+            code=f'TP{unique_id}',
+            department=self.department,
+            level=self.level,
+            duration_years=3
+        )
+        
+        # Create academic year
+        self.academic_year = AcademicYear.objects.create(
+            name=f'2023-2024-{unique_id}',
+            start_date=date(2023, 9, 1),
+            end_date=date(2024, 6, 30),
+            is_current=False
+        )
+
+    @settings(max_examples=10)
+    @given(
+        amount=st.decimals(min_value=Decimal('1000.00'), max_value=Decimal('50000.00'), places=2),
+        installments=st.integers(min_value=1, max_value=4),
+    )
+    def test_property_1_foreign_key_representation(self, amount, installments):
+        """
+        Feature: backend-api-implementation, Property 1: Foreign Key Representation
+        
+        **Validates: Requirements 1.8**
+        
+        For any model instance with foreign key relationships, when serialized,
+        the output should include readable representations of the related objects.
+        """
+        # Create tuition fee
+        fee = TuitionFee.objects.create(
+            program=self.program,
+            academic_year=self.academic_year,
+            amount=amount,
+            installments_allowed=installments,
+            due_date=date(2024, 1, 31)
+        )
+        
+        # Test list serializer
+        list_serializer = TuitionFeeListSerializer(fee)
+        list_data = list_serializer.data
+        
+        # Verify readable representations are included
+        self.assertIn('program_name', list_data)
+        self.assertIn('program_code', list_data)
+        self.assertIn('academic_year_name', list_data)
+        
+        # Verify values are correct
+        self.assertEqual(list_data['program_name'], self.program.name)
+        self.assertEqual(list_data['program_code'], self.program.code)
+        self.assertEqual(list_data['academic_year_name'], self.academic_year.name)
+        
+        # Test detail serializer
+        detail_serializer = TuitionFeeDetailSerializer(fee)
+        detail_data = detail_serializer.data
+        
+        # Verify additional readable representations in detail view
+        self.assertIn('department_name', detail_data)
+        self.assertIn('faculty_name', detail_data)
+        self.assertIn('academic_year_is_current', detail_data)
+
+    @settings(max_examples=10)
+    @given(
+        amount=st.decimals(min_value=Decimal('-5000.00'), max_value=Decimal('0.00'), places=2),
+    )
+    def test_property_2_validation_enforcement_negative_amount(self, amount):
+        """
+        Feature: backend-api-implementation, Property 2: Validation Enforcement
+        
+        **Validates: Requirements 1.9**
+        
+        Test case: Tuition fee amount must be positive.
+        """
+        # Try to create fee with negative or zero amount
+        data = {
+            'program': self.program.id,
+            'academic_year': self.academic_year.id,
+            'amount': str(amount),
+            'installments_allowed': 2,
+            'due_date': date(2024, 1, 31).isoformat()
+        }
+        
+        serializer = TuitionFeeCreateSerializer(data=data)
+        
+        # Should be invalid due to non-positive amount
+        is_valid = serializer.is_valid()
+        self.assertFalse(is_valid)
+        
+        # Should have amount error
+        self.assertIn('amount', serializer.errors)
+    
+    @settings(max_examples=10)
+    def test_property_2_validation_enforcement_duplicate_program_year(self):
+        """
+        Feature: backend-api-implementation, Property 2: Validation Enforcement
+        
+        **Validates: Requirements 1.9**
+        
+        Test case: Only one tuition fee per program and academic year.
+        """
+        # Create a tuition fee
+        TuitionFee.objects.create(
+            program=self.program,
+            academic_year=self.academic_year,
+            amount=Decimal('10000.00'),
+            installments_allowed=2,
+            due_date=date(2024, 1, 31)
+        )
+        
+        # Try to create another fee for the same program and year
+        data = {
+            'program': self.program.id,
+            'academic_year': self.academic_year.id,
+            'amount': '15000.00',
+            'installments_allowed': 3,
+            'due_date': date(2024, 1, 31).isoformat()
+        }
+        
+        serializer = TuitionFeeCreateSerializer(data=data)
+        
+        # Should be invalid due to duplicate
+        is_valid = serializer.is_valid()
+        self.assertFalse(is_valid)
+        
+        # Should have program error
+        self.assertIn('program', serializer.errors)
+
+
+
+class StudentBalanceSerializerPropertyTests(TestCase):
+    """Property tests for StudentBalance serializers."""
+    
+    def setUp(self):
+        """Set up test data."""
+        # Create users with unique usernames
+        unique_id = str(uuid.uuid4())[:8]
+        self.dean = User.objects.create_user(
+            username=f'dean_balance_{unique_id}',
+            email=f'dean_balance_{unique_id}@test.com',
+            password='testpass123',
+            role=User.Role.ADMIN,
+            first_name='Dean',
+            last_name='Test'
+        )
+        
+        # Create faculty and department
+        self.faculty = Faculty.objects.create(
+            name='Test Faculty',
+            code=f'TF{unique_id}',
+            dean=self.dean
+        )
+        self.department = Department.objects.create(
+            name='Test Department',
+            code=f'TD{unique_id}',
+            faculty=self.faculty,
+            head=self.dean
+        )
+        
+        # Create level and program
+        self.level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
+        self.program = Program.objects.create(
+            name='Test Program',
+            code=f'TP{unique_id}',
+            department=self.department,
+            level=self.level,
+            duration_years=3
+        )
+        
+        # Create academic year
+        self.academic_year = AcademicYear.objects.create(
+            name=f'2023-2024-{unique_id}',
+            start_date=date(2023, 9, 1),
+            end_date=date(2024, 6, 30),
+            is_current=False
+        )
+        
+        # Create student
+        self.student_user = User.objects.create_user(
+            username=f'student_balance_{unique_id}',
+            email=f'student_balance_{unique_id}@test.com',
+            password='testpass123',
+            role=User.Role.STUDENT,
+            first_name='Student',
+            last_name='Test'
+        )
+        self.student = Student.objects.create(
+            user=self.student_user,
+            student_id=f'STU{unique_id}',
+            program=self.program,
+            current_level=self.level,
+            enrollment_date=date.today()
+        )
+
+    @settings(max_examples=10)
+    @given(
+        total_due=st.decimals(min_value=Decimal('1000.00'), max_value=Decimal('50000.00'), places=2),
+        total_paid=st.decimals(min_value=Decimal('0.00'), max_value=Decimal('50000.00'), places=2),
+    )
+    def test_property_1_foreign_key_representation(self, total_due, total_paid):
+        """
+        Feature: backend-api-implementation, Property 1: Foreign Key Representation
+        
+        **Validates: Requirements 1.8**
+        
+        For any model instance with foreign key relationships, when serialized,
+        the output should include readable representations of the related objects.
+        """
+        # Create student balance
+        balance = StudentBalance.objects.create(
+            student=self.student,
+            academic_year=self.academic_year,
+            total_due=total_due,
+            total_paid=total_paid
+        )
+        
+        # Test list serializer
+        list_serializer = StudentBalanceListSerializer(balance)
+        list_data = list_serializer.data
+        
+        # Verify readable representations are included
+        self.assertIn('student_name', list_data)
+        self.assertIn('student_matricule', list_data)
+        self.assertIn('academic_year_name', list_data)
+        
+        # Verify values are correct
+        self.assertEqual(list_data['student_name'], self.student.user.get_full_name())
+        self.assertEqual(list_data['student_matricule'], self.student.student_id)
+        self.assertEqual(list_data['academic_year_name'], self.academic_year.name)
+        
+        # Test detail serializer
+        detail_serializer = StudentBalanceDetailSerializer(balance)
+        detail_data = detail_serializer.data
+        
+        # Verify additional readable representations in detail view
+        self.assertIn('student_email', detail_data)
+        self.assertIn('student_phone', detail_data)
+        self.assertIn('student_program', detail_data)
+        self.assertIn('academic_year_is_current', detail_data)
+
+    @settings(max_examples=10)
+    @given(
+        total_due=st.decimals(min_value=Decimal('1000.00'), max_value=Decimal('50000.00'), places=2),
+        total_paid=st.decimals(min_value=Decimal('0.00'), max_value=Decimal('50000.00'), places=2),
+    )
+    def test_property_3_computed_properties_inclusion(self, total_due, total_paid):
+        """
+        Feature: backend-api-implementation, Property 3: Computed Properties Inclusion
+        
+        **Validates: Requirements 1.10**
+        
+        For any model with computed properties (methods decorated with @property),
+        the serializer should include those properties as read-only fields in the output.
+        """
+        # Create student balance
+        balance = StudentBalance.objects.create(
+            student=self.student,
+            academic_year=self.academic_year,
+            total_due=total_due,
+            total_paid=total_paid
+        )
+        
+        # Serialize with list serializer
+        list_serializer = StudentBalanceListSerializer(balance)
+        list_data = list_serializer.data
+        
+        # Verify computed properties are included
+        self.assertIn('balance', list_data)
+        self.assertIn('is_paid', list_data)
+        
+        # Verify computed values are correct
+        expected_balance = total_due - total_paid
+        expected_is_paid = total_paid >= total_due
+        
+        self.assertEqual(Decimal(list_data['balance']), expected_balance)
+        self.assertEqual(list_data['is_paid'], expected_is_paid)
+        
+        # Test detail serializer
+        detail_serializer = StudentBalanceDetailSerializer(balance)
+        detail_data = detail_serializer.data
+        
+        # Verify computed properties are also in detail view
+        self.assertIn('balance', detail_data)
+        self.assertIn('is_paid', detail_data)
+        self.assertIn('payments_count', detail_data)
+        
+        self.assertEqual(Decimal(detail_data['balance']), expected_balance)
+        self.assertEqual(detail_data['is_paid'], expected_is_paid)
+
+
+
+class SalarySerializerPropertyTests(TestCase):
+    """Property tests for Salary serializers."""
+    
+    def setUp(self):
+        """Set up test data."""
+        # Create employee user with unique username
+        unique_id = str(uuid.uuid4())[:8]
+        self.employee = User.objects.create_user(
+            username=f'employee_salary_{unique_id}',
+            email=f'employee_salary_{unique_id}@test.com',
+            password='testpass123',
+            role=User.Role.TEACHER,
+            first_name='Employee',
+            last_name='Test'
+        )
+        
+        self.accountant = User.objects.create_user(
+            username=f'accountant_salary_{unique_id}',
+            email=f'accountant_salary_{unique_id}@test.com',
+            password='testpass123',
+            role=User.Role.ACCOUNTANT,
+            first_name='Accountant',
+            last_name='Test'
+        )
+    
+    @settings(max_examples=10)
+    @given(
+        month=st.integers(min_value=1, max_value=12),
+        year=st.integers(min_value=2020, max_value=2030),
+        base_salary=st.decimals(min_value=Decimal('1000.00'), max_value=Decimal('10000.00'), places=2),
+        bonuses=st.decimals(min_value=Decimal('0.00'), max_value=Decimal('2000.00'), places=2),
+        deductions=st.decimals(min_value=Decimal('0.00'), max_value=Decimal('1000.00'), places=2),
+    )
+    def test_property_1_foreign_key_representation(self, month, year, base_salary, bonuses, deductions):
+        """
+        Feature: backend-api-implementation, Property 1: Foreign Key Representation
+        
+        **Validates: Requirements 1.8**
+        
+        For any model instance with foreign key relationships, when serialized,
+        the output should include readable representations of the related objects.
+        """
+        # Create salary
+        salary = Salary.objects.create(
+            employee=self.employee,
+            month=month,
+            year=year,
+            base_salary=base_salary,
+            bonuses=bonuses,
+            deductions=deductions,
+            processed_by=self.accountant
+        )
+        
+        # Test list serializer
+        list_serializer = SalaryListSerializer(salary)
+        list_data = list_serializer.data
+        
+        # Verify readable representations are included
+        self.assertIn('employee_name', list_data)
+        self.assertIn('employee_email', list_data)
+        self.assertIn('status_display', list_data)
+        self.assertIn('processed_by_name', list_data)
+        
+        # Verify values are correct
+        self.assertEqual(list_data['employee_name'], self.employee.get_full_name())
+        self.assertEqual(list_data['employee_email'], self.employee.email)
+        self.assertEqual(list_data['status_display'], salary.get_status_display())
+        self.assertEqual(list_data['processed_by_name'], self.accountant.get_full_name())
+        
+        # Test detail serializer
+        detail_serializer = SalaryDetailSerializer(salary)
+        detail_data = detail_serializer.data
+        
+        # Verify additional readable representations in detail view
+        self.assertIn('employee_phone', detail_data)
+        self.assertIn('employee_role', detail_data)
+
+    @settings(max_examples=10)
+    @given(
+        base_salary=st.decimals(min_value=Decimal('-1000.00'), max_value=Decimal('0.00'), places=2),
+    )
+    def test_property_2_validation_enforcement_negative_base_salary(self, base_salary):
+        """
+        Feature: backend-api-implementation, Property 2: Validation Enforcement
+        
+        **Validates: Requirements 1.9**
+        
+        Test case: Base salary must be positive.
+        """
+        # Try to create salary with negative or zero base salary
+        data = {
+            'employee': self.employee.id,
+            'month': 1,
+            'year': 2024,
+            'base_salary': str(base_salary),
+            'bonuses': '0.00',
+            'deductions': '0.00',
+            'status': 'PENDING',
+            'processed_by': self.accountant.id
+        }
+        
+        serializer = SalaryCreateSerializer(data=data)
+        
+        # Should be invalid due to non-positive base salary
+        is_valid = serializer.is_valid()
+        self.assertFalse(is_valid)
+        
+        # Should have base_salary error
+        self.assertIn('base_salary', serializer.errors)
+    
+    @settings(max_examples=10)
+    @given(
+        month=st.integers(min_value=1, max_value=12),
+        year=st.integers(min_value=2020, max_value=2030),
+    )
+    def test_property_2_validation_enforcement_duplicate_salary(self, month, year):
+        """
+        Feature: backend-api-implementation, Property 2: Validation Enforcement
+        
+        **Validates: Requirements 1.9**
+        
+        Test case: Only one salary record per employee, month, and year.
+        """
+        # Create a salary record
+        Salary.objects.create(
+            employee=self.employee,
+            month=month,
+            year=year,
+            base_salary=Decimal('5000.00'),
+            bonuses=Decimal('500.00'),
+            deductions=Decimal('200.00'),
+            processed_by=self.accountant
+        )
+        
+        # Try to create another salary for the same employee, month, and year
+        data = {
+            'employee': self.employee.id,
+            'month': month,
+            'year': year,
+            'base_salary': '6000.00',
+            'bonuses': '0.00',
+            'deductions': '0.00',
+            'status': 'PENDING',
+            'processed_by': self.accountant.id
+        }
+        
+        serializer = SalaryCreateSerializer(data=data)
+        
+        # Should be invalid due to duplicate
+        is_valid = serializer.is_valid()
+        self.assertFalse(is_valid)
+        
+        # Should have employee error
+        self.assertIn('employee', serializer.errors)
+
+    @settings(max_examples=10)
+    @given(
+        base_salary=st.decimals(min_value=Decimal('1000.00'), max_value=Decimal('10000.00'), places=2),
+        bonuses=st.decimals(min_value=Decimal('0.00'), max_value=Decimal('2000.00'), places=2),
+        deductions=st.decimals(min_value=Decimal('0.00'), max_value=Decimal('1000.00'), places=2),
+    )
+    def test_property_3_computed_properties_inclusion(self, base_salary, bonuses, deductions):
+        """
+        Feature: backend-api-implementation, Property 3: Computed Properties Inclusion
+        
+        **Validates: Requirements 1.10**
+        
+        For any model with computed properties, the serializer should include
+        those properties as read-only fields in the output.
+        
+        Test case: net_salary is automatically calculated as base_salary + bonuses - deductions.
+        """
+        # Create salary
+        salary = Salary.objects.create(
+            employee=self.employee,
+            month=1,
+            year=2024,
+            base_salary=base_salary,
+            bonuses=bonuses,
+            deductions=deductions,
+            processed_by=self.accountant
+        )
+        
+        # Serialize with list serializer
+        list_serializer = SalaryListSerializer(salary)
+        list_data = list_serializer.data
+        
+        # Verify net_salary is included
+        self.assertIn('net_salary', list_data)
+        
+        # Verify net_salary is correctly calculated
+        expected_net_salary = base_salary + bonuses - deductions
+        self.assertEqual(Decimal(list_data['net_salary']), expected_net_salary)
+        
+        # Test detail serializer
+        detail_serializer = SalaryDetailSerializer(salary)
+        detail_data = detail_serializer.data
+        
+        # Verify net_salary is also in detail view
+        self.assertIn('net_salary', detail_data)
+        self.assertEqual(Decimal(detail_data['net_salary']), expected_net_salary)
+
+
+class ExpenseSerializerPropertyTests(TestCase):
+    """Property tests for Expense serializers."""
+    
+    def setUp(self):
+        """Set up test data."""
+        # Create users with unique usernames
+        unique_id = str(uuid.uuid4())[:8]
+        self.admin = User.objects.create_user(
+            username=f'admin_expense_{unique_id}',
+            email=f'admin_expense_{unique_id}@test.com',
+            password='testpass123',
+            role=User.Role.ADMIN,
+            first_name='Admin',
+            last_name='Test'
+        )
+        
+        self.accountant = User.objects.create_user(
+            username=f'accountant_expense_{unique_id}',
+            email=f'accountant_expense_{unique_id}@test.com',
+            password='testpass123',
+            role=User.Role.ACCOUNTANT,
+            first_name='Accountant',
+            last_name='Test'
+        )
+
+    @settings(max_examples=10)
+    @given(
+        category=st.sampled_from([choice[0] for choice in Expense.ExpenseCategory.choices]),
+        amount=st.decimals(min_value=Decimal('10.00'), max_value=Decimal('10000.00'), places=2),
+    )
+    def test_property_1_foreign_key_representation(self, category, amount):
+        """
+        Feature: backend-api-implementation, Property 1: Foreign Key Representation
+        
+        **Validates: Requirements 1.8**
+        
+        For any model instance with foreign key relationships, when serialized,
+        the output should include readable representations of the related objects.
+        """
+        # Create expense
+        expense = Expense.objects.create(
+            category=category,
+            description='Test expense',
+            amount=amount,
+            date=date.today(),
+            approved_by=self.admin,
+            created_by=self.accountant
+        )
+        
+        # Test list serializer
+        list_serializer = ExpenseListSerializer(expense)
+        list_data = list_serializer.data
+        
+        # Verify readable representations are included
+        self.assertIn('category_display', list_data)
+        self.assertIn('approved_by_name', list_data)
+        self.assertIn('created_by_name', list_data)
+        
+        # Verify values are correct
+        self.assertEqual(list_data['category_display'], expense.get_category_display())
+        self.assertEqual(list_data['approved_by_name'], self.admin.get_full_name())
+        self.assertEqual(list_data['created_by_name'], self.accountant.get_full_name())
+        
+        # Test detail serializer
+        detail_serializer = ExpenseDetailSerializer(expense)
+        detail_data = detail_serializer.data
+        
+        # Verify additional readable representations in detail view
+        self.assertIn('approved_by_email', detail_data)
+        self.assertIn('created_by_email', detail_data)
+    
+    @settings(max_examples=10)
+    @given(
+        amount=st.decimals(min_value=Decimal('-1000.00'), max_value=Decimal('0.00'), places=2),
+    )
+    def test_property_2_validation_enforcement_negative_amount(self, amount):
+        """
+        Feature: backend-api-implementation, Property 2: Validation Enforcement
+        
+        **Validates: Requirements 1.9**
+        
+        Test case: Expense amount must be positive.
+        """
+        # Try to create expense with negative or zero amount
+        data = {
+            'category': 'UTILITIES',
+            'description': 'Test expense',
+            'amount': str(amount),
+            'date': date.today().isoformat(),
+            'approved_by': self.admin.id,
+            'created_by': self.accountant.id
+        }
+        
+        serializer = ExpenseCreateSerializer(data=data)
+        
+        # Should be invalid due to non-positive amount
+        is_valid = serializer.is_valid()
+        self.assertFalse(is_valid)
+        
+        # Should have amount error
+        self.assertIn('amount', serializer.errors)

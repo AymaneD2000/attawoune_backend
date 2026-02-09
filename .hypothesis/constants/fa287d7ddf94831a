@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/scheduling/admin.py
+# hypothesis_version: 6.151.4
+
+['announcement_type', 'classroom', 'content', 'course', 'created_at', 'date', 'day', 'end_time', 'is_active', 'is_cancelled', 'is_pinned', 'is_published', 'schedule', 'semester', 'session_type', 'start_time', 'target_audience', 'teacher', 'time_slot', 'title']

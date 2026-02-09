@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/finance/views.py
+# hypothesis_version: 6.151.4
+
+['-date', '-month', '-payment_date', '-updated_at', '-year', 'COMPLETED', 'PAID', 'PENDING', 'academic_year', 'amount', 'approved_by', 'category', 'create', 'created_at', 'created_by', 'current_year', 'date', 'description', 'due_date', 'employee', 'employee__email', 'employee__first_name', 'employee__last_name', 'error', 'list', 'month', 'net_balance', 'net_salary', 'partial_update', 'payment_date', 'payment_method', 'processed_by', 'program', 'program__code', 'program__department', 'program__name', 'receipt_number', 'received_by', 'reference', 'retrieve', 'status', 'student', 'student__program', 'student__student_id', 'student__user', 'total', 'total_due', 'total_expenses', 'total_paid', 'total_salaries_paid', 'update', 'updated_at', 'year']

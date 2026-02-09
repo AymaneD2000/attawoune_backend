@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/scheduling/views.py
+# hypothesis_version: 6.151.4
+
+[400, 'Annonce publiée', 'Séance annulée', 'announcement_type', 'classroom', 'content', 'course', 'created_at', 'created_by', 'date', 'day', 'error', 'faculty', 'get', 'is_active', 'is_cancelled', 'is_pinned', 'is_published', 'list', 'message', 'post', 'program', 'program_id', 'program_id required', 'publish_date', 'reason', 'retrieve', 'schedule', 'semester', 'semester_id', 'session_type', 'start_time', 'target_audience', 'teacher', 'teacher_id', 'teacher_id required', 'time_slot', 'title']

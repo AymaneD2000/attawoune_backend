@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/core/settings.py
+# hypothesis_version: 6.151.4
+
+[',', '1.0.0', 'ALLOWED_HOSTS', 'APP_DIRS', 'AUTH_HEADER_TYPES', 'Africa/Bamako', 'BACKEND', 'Bearer', 'CORS_ALLOWED_ORIGINS', 'DEBUG', 'DEFAULT_SCHEMA_CLASS', 'DESCRIPTION', 'DIRS', 'ENGINE', 'NAME', 'OPTIONS', 'PAGE_SIZE', 'SECRET_KEY', 'SERVE_INCLUDE_SCHEMA', 'TITLE', 'VERSION', 'accounts.User', 'apps.academics', 'apps.accounts', 'apps.finance', 'apps.scheduling', 'apps.students', 'apps.teachers', 'apps.university', 'context_processors', 'core.urls', 'corsheaders', 'db.sqlite3', 'default', 'django.contrib.admin', 'django.contrib.auth', 'django_filters', 'drf_spectacular', 'fr-fr', 'localhost,127.0.0.1', 'media', 'media/', 'rest_framework', 'static/', 'staticfiles']

@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/students/admin.py
+# hypothesis_version: 6.151.4
+
+['academic_year', 'course_session', 'current_level', 'enrollment_date', 'is_active', 'level', 'program', 'recorded_at', 'recorded_by', 'status', 'student', 'student_id', 'user', 'user__email', 'user__first_name', 'user__last_name']

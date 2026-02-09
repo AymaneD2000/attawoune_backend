@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/academics/admin.py
+# hypothesis_version: 6.151.4
+
+['classroom', 'code', 'course', 'course_type', 'credits', 'credits_earned', 'date', 'exam', 'exam_type', 'final_score', 'gpa', 'grade_letter', 'graded_at', 'graded_by', 'is_absent', 'is_active', 'is_published', 'is_validated', 'name', 'program', 'score', 'semester', 'start_time', 'student', 'total_credits']

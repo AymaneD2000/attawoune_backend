@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/university/views.py
+# hypothesis_version: 6.151.4
+
+['-start_date', 'academic_year', 'academic_year__name', 'building', 'capacity', 'code', 'courses', 'created_at', 'dean', 'department', 'department__faculty', 'departments', 'description', 'faculty', 'has_computers', 'has_projector', 'head', 'is_active', 'is_available', 'is_current', 'level', 'list', 'name', 'order', 'programs', 'retrieve', 'semester_type', 'semesters', 'start_date', 'students', 'teachers']

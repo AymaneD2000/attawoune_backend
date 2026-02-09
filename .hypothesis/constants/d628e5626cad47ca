@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/academics/migrations/0002_initial.py
+# hypothesis_version: 6.151.4
+
+['0001_initial', 'Cours', 'Examen', 'Généré par', 'Noté par', 'Programme', 'Salle', 'Semestre', 'Validé par', 'academics', 'academics.course', 'academics.exam', 'classroom', 'course', 'course_grades', 'coursegrade', 'courses', 'exam', 'exams', 'generated_by', 'grade', 'graded_by', 'graded_exams', 'grades', 'program', 'report_cards', 'reportcard', 'semester', 'student', 'student_grades', 'students', 'students.student', 'university', 'university.classroom', 'university.program', 'university.semester', 'validated_by', 'validated_grades', 'Étudiant']
