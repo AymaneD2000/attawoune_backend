@@ -12,7 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Security settings
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-in-production')
 DEBUG = config('DEBUG', default=False, cast=bool)
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,.onrender.com').split(',')
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,.onrender.com,lk40s80skcocogs4kkogcgc4.62.171.157.196.sslip.io').split(',')
 
 # Application definition
 INSTALLED_APPS = [
@@ -140,7 +140,7 @@ SIMPLE_JWT = {
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://127.0.0.1:3000,https://attawoune-frontend-w7de.vercel.app'
+    default='http://localhost:3000,http://127.0.0.1:3000,https://attawoune-frontend-w7de.vercel.app,http://lk40s80skcocogs4kkogcgc4.62.171.157.196.sslip.io'
 ).split(',')
 CORS_ALLOW_CREDENTIALS = True
 
@@ -148,6 +148,7 @@ CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = [
     'https://attawoune-frontend-w7de.vercel.app',
     'https://attawoune-backend.onrender.com',
+    'http://lk40s80skcocogs4kkogcgc4.62.171.157.196.sslip.io',
 ]
 
 # API Documentation
