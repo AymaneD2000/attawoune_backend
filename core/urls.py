@@ -11,6 +11,7 @@ This module provides:
 
 from django.contrib import admin
 from django.urls import path, include
+from .views import health_check
 from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework_simplejwt.views import (
@@ -37,6 +38,9 @@ api_v1_patterns = [
 ]
 
 urlpatterns = [
+    # Health check
+    path("health/", health_check, name='health_check'),
+
     # Admin
     path("admin/", admin.site.urls),
 
