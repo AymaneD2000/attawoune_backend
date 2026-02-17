@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import (
-    AcademicYear, Semester, Faculty, Department, Level, Program, Classroom
+    AcademicYear, Semester, Faculty, Department, Level, Program, Classroom, ProgramFee
 )
 
 
@@ -227,6 +227,16 @@ class LevelSerializer(serializers.ModelSerializer):
 
 
 # Program Serializers
+class ProgramFeeSerializer(serializers.ModelSerializer):
+    """Serializer for ProgramFee."""
+    level_name = serializers.CharField(source='level.name', read_only=True)
+    academic_year_name = serializers.CharField(source='academic_year.name', read_only=True)
+    
+    class Meta:
+        model = ProgramFee
+        fields = ['id', 'level', 'level_name', 'academic_year', 'academic_year_name', 'amount']
+
+
 class ProgramListSerializer(serializers.ModelSerializer):
     """List serializer for Program with basic fields."""
     department_name = serializers.CharField(
@@ -238,10 +248,17 @@ class ProgramListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Program
         fields = ['id', 'name', 'code', 'department', 'department_name', 
-                  'levels', 'levels_display', 'is_active', 'students_count']
+                  'levels', 'levels_display', 'is_active', 'students_count', 'fees']
     
     def get_levels_display(self, obj):
         return ", ".join([l.get_name_display() for l in obj.levels.all()])
+
+    def get_fees(self, obj):
+        current_year = AcademicYear.objects.filter(is_current=True).first()
+        if current_year:
+            fees = obj.fees.filter(academic_year=current_year)
+            return ProgramFeeSerializer(fees, many=True).data
+        return []
 
     def get_students_count(self, obj):
         return obj.students.filter(status='ACTIVE').count()
@@ -252,6 +269,17 @@ class ProgramDetailSerializer(serializers.ModelSerializer):
     department_name = serializers.CharField(
         source='department.name', read_only=True
     )
+    fees = serializers.SerializerMethodField()
+
+    def get_fees(self, obj):
+        # Get active or current academic year fees
+        # For now, return all fees or filter by current year?
+        # Let's return fees for the current academic year if possible
+        current_year = AcademicYear.objects.filter(is_current=True).first()
+        if current_year:
+            fees = obj.fees.filter(academic_year=current_year)
+            return ProgramFeeSerializer(fees, many=True).data
+        return []
     department_code = serializers.CharField(
         source='department.code', read_only=True
     )
@@ -289,6 +317,15 @@ class ProgramSerializer(serializers.ModelSerializer):
     )
     levels_display = serializers.SerializerMethodField()
     students_count = serializers.SerializerMethodField()
+    
+    # Write-only field for fees configuration: { "level_id": amount }
+    fees_config = serializers.DictField(
+        child=serializers.DecimalField(max_digits=12, decimal_places=2),
+        write_only=True,
+        required=False
+    )
+    # Read-only fees field
+    fees = serializers.SerializerMethodField()
 
     class Meta:
         model = Program
@@ -299,6 +336,41 @@ class ProgramSerializer(serializers.ModelSerializer):
 
     def get_students_count(self, obj):
         return obj.students.filter(status='ACTIVE').count()
+
+    def get_fees(self, obj):
+        current_year = AcademicYear.objects.filter(is_current=True).first()
+        if current_year:
+            fees = obj.fees.filter(academic_year=current_year)
+            return ProgramFeeSerializer(fees, many=True).data
+        return []
+
+    def create(self, validated_data):
+        fees_config = validated_data.pop('fees_config', {})
+        program = super().create(validated_data)
+        self._save_fees(program, fees_config)
+        return program
+
+    def update(self, instance, validated_data):
+        fees_config = validated_data.pop('fees_config', {})
+        program = super().update(instance, validated_data)
+        self._save_fees(program, fees_config)
+        return program
+
+    def _save_fees(self, program, fees_config):
+        if not fees_config:
+            return
+            
+        current_year = AcademicYear.objects.filter(is_current=True).first()
+        if not current_year:
+            return
+
+        for level_id, amount in fees_config.items():
+            ProgramFee.objects.update_or_create(
+                program=program,
+                level_id=level_id,
+                academic_year=current_year,
+                defaults={'amount': amount}
+            )
 
 
 # Classroom Serializers

@@ -95,19 +95,27 @@ class StudentViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
         
-        if user.role in ['ADMIN', 'SECRETARY']:
-            return self.queryset
-        elif user.role == 'STUDENT':
+        queryset = self.queryset
+        
+        if user.role == 'STUDENT':
             # Students can only see their own profile
-            return self.queryset.filter(user=user)
+            queryset = queryset.filter(user=user)
         elif user.role == 'TEACHER':
             # Teachers can see students in their courses
-            # Get students enrolled in programs that have courses taught by this teacher
-            return self.queryset.filter(
+            queryset = queryset.filter(
                 enrollments__program__courses__teacher_assignments__teacher__user=user
             ).distinct()
+        elif user.role not in ['ADMIN', 'SECRETARY']:
+            # Others: No access
+            return self.queryset.none()
+            
+        # Filter by current academic year if requested
+        current_year_only = self.request.query_params.get('current_year_only', 'false').lower() == 'true'
         
-        return self.queryset.none()
+        if current_year_only:
+            queryset = queryset.filter(enrollments__academic_year__is_current=True).distinct()
+            
+        return queryset
     
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsSecretaryOrAdmin])
     def promote(self, request, pk=None):

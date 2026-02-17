@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from decimal import Decimal
+from django.utils import timezone
 from .models import TuitionPayment, TuitionFee, StudentBalance, Salary, Expense
 
 
@@ -15,6 +16,12 @@ class TuitionPaymentListSerializer(serializers.ModelSerializer):
     academic_year_name = serializers.CharField(
         source='academic_year.name', read_only=True
     )
+    level_name = serializers.CharField(
+        source='level.display_name', read_only=True
+    )
+    semester_name = serializers.CharField(
+        source='semester.semester_type', read_only=True
+    )
     payment_method_display = serializers.CharField(
         source='get_payment_method_display', read_only=True
     )
@@ -29,7 +36,8 @@ class TuitionPaymentListSerializer(serializers.ModelSerializer):
         model = TuitionPayment
         fields = [
             'id', 'student', 'student_name', 'student_matricule',
-            'academic_year', 'academic_year_name', 'amount', 'payment_method',
+            'academic_year', 'academic_year_name', 'level', 'level_name',
+            'semester', 'semester_name', 'amount', 'payment_method',
             'payment_method_display', 'status', 'status_display', 'reference',
             'payment_date', 'received_by', 'received_by_name'
         ]
@@ -48,6 +56,12 @@ class TuitionPaymentDetailSerializer(serializers.ModelSerializer):
     )
     academic_year_name = serializers.CharField(
         source='academic_year.name', read_only=True
+    )
+    level_name = serializers.CharField(
+        source='level.display_name', read_only=True
+    )
+    semester_name = serializers.CharField(
+        source='semester.semester_type', read_only=True
     )
     payment_method_display = serializers.CharField(
         source='get_payment_method_display', read_only=True
@@ -70,17 +84,25 @@ class TuitionPaymentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = TuitionPayment
         fields = [
-            'student', 'academic_year', 'amount', 'payment_method',
-            'status', 'reference', 'description', 'receipt_number',
-            'payment_date', 'received_by'
+            'student', 'academic_year', 'level', 'semester', 'amount',
+            'payment_method', 'status', 'reference', 'description',
+            'receipt_number', 'payment_date', 'received_by'
         ]
         extra_kwargs = {
             'academic_year': {'required': False},
+            'level': {'required': False},
+            'semester': {'required': False},
             'reference': {'required': False},
             'payment_date': {'required': False},
             'received_by': {'read_only': True}
         }
     
+    def validate(self, attrs):
+        """Validate payment constraints."""
+        if attrs.get('payment_date') is None:
+            attrs['payment_date'] = timezone.now().date()
+        return attrs
+
     def validate_amount(self, value):
         """Validate that amount is positive."""
         if value <= 0:

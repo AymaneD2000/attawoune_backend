@@ -143,6 +143,10 @@ class Level(models.Model):
     def __str__(self):
         return self.get_name_display()
 
+    @property
+    def display_name(self):
+        return self.get_name_display()
+
 
 class Program(models.Model):
     """Programme/Filière d'études."""
@@ -197,3 +201,38 @@ class Classroom(models.Model):
 
     def __str__(self):
         return f"{self.code} - {self.name}"
+
+
+class ProgramFee(models.Model):
+    """Frais de scolarité par programme et niveau pour une année académique."""
+    program = models.ForeignKey(
+        Program,
+        on_delete=models.CASCADE,
+        related_name='fees',
+        verbose_name="Programme"
+    )
+    level = models.ForeignKey(
+        Level,
+        on_delete=models.CASCADE,
+        related_name='fees',
+        verbose_name="Niveau"
+    )
+    academic_year = models.ForeignKey(
+        AcademicYear,
+        on_delete=models.CASCADE,
+        related_name='program_fees',
+        verbose_name="Année académique"
+    )
+    amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name="Montant"
+    )
+
+    class Meta:
+        verbose_name = "Frais de programme"
+        verbose_name_plural = "Frais de programmes"
+        unique_together = ['program', 'level', 'academic_year']
+
+    def __str__(self):
+        return f"{self.program} - {self.level} - {self.academic_year}: {self.amount}"

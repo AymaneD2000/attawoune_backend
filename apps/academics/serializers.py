@@ -25,6 +25,7 @@ class CourseListSerializer(serializers.ModelSerializer):
             'id', 'code', 'name', 'program', 'program_name', 'program_code',
             'course_type', 'course_type_display', 'credits', 'coefficient',
             'semester_type', 'semester_type_display', 'level', 'level_display',
+            'hours_lecture', 'hours_tutorial', 'hours_practical',
             'total_hours', 'is_active'
         ]
 
@@ -223,6 +224,12 @@ class GradeListSerializer(serializers.ModelSerializer):
     exam_type_display = serializers.CharField(
         source='exam.get_exam_type_display', read_only=True
     )
+    academic_year_name = serializers.CharField(
+        source='exam.semester.academic_year.name', read_only=True
+    )
+    semester_name = serializers.CharField(
+        source='exam.semester.get_semester_type_display', read_only=True
+    )
     graded_by_name = serializers.CharField(
         source='graded_by.get_full_name', read_only=True
     )
@@ -235,6 +242,7 @@ class GradeListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'student', 'student_name', 'student_matricule', 'exam',
             'exam_info', 'course_name', 'course_code', 'exam_type_display',
+            'academic_year_name', 'semester_name',
             'score', 'percentage', 'is_absent', 'graded_by', 'graded_by_name',
             'graded_at'
         ]

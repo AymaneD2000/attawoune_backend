@@ -30,6 +30,22 @@ class TuitionPayment(models.Model):
         related_name='tuition_payments',
         verbose_name="Année académique"
     )
+    level = models.ForeignKey(
+        'university.Level',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tuition_payments',
+        verbose_name="Niveau"
+    )
+    semester = models.ForeignKey(
+        'university.Semester',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tuition_payments',
+        verbose_name="Semestre"
+    )
     amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,

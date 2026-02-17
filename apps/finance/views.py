@@ -15,7 +15,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Sum, F
+from django.db.models import Sum, F, Q
 from django.utils import timezone
 import uuid
 
@@ -68,6 +68,22 @@ class TuitionPaymentViewSet(viewsets.ModelViewSet):
         'student', 'student__user', 'student__program',
         'academic_year', 'received_by'
     ).all()
+
+    def get_queryset(self):
+        """Filter by current academic year by default."""
+        queryset = super().get_queryset()
+        
+        # Filter by current academic year if requested (default True)
+        current_year_only = self.request.query_params.get('current_year_only', 'true').lower() == 'true'
+        
+        if current_year_only and 'academic_year' not in self.request.query_params:
+            from apps.university.models import AcademicYear
+            current_year = AcademicYear.objects.filter(is_current=True).first()
+            if current_year:
+                queryset = queryset.filter(academic_year=current_year)
+        
+        return queryset
+
     permission_classes = [IsAuthenticated, IsAccountantOrAdmin]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['student', 'academic_year', 'payment_method', 'status']
@@ -237,6 +253,21 @@ class TuitionFeeViewSet(viewsets.ModelViewSet):
         'program', 'program__department', 'program__department__faculty',
         'academic_year'
     ).all()
+
+    def get_queryset(self):
+        """Filter by current academic year by default."""
+        queryset = super().get_queryset()
+        
+        # Filter by current academic year if requested (default True)
+        current_year_only = self.request.query_params.get('current_year_only', 'true').lower() == 'true'
+
+        if current_year_only and 'academic_year' not in self.request.query_params:
+            from apps.university.models import AcademicYear
+            current_year = AcademicYear.objects.filter(is_current=True).first()
+            if current_year:
+                queryset = queryset.filter(academic_year=current_year)
+        return queryset
+
     permission_classes = [IsAuthenticated, IsAccountantOrAdmin]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['program', 'academic_year']
@@ -288,6 +319,21 @@ class StudentBalanceViewSet(viewsets.ModelViewSet):
         'student', 'student__user', 'student__program',
         'academic_year'
     ).all()
+
+    def get_queryset(self):
+        """Filter by current academic year by default."""
+        queryset = super().get_queryset()
+        
+        # Filter by current academic year if requested (default True)
+        current_year_only = self.request.query_params.get('current_year_only', 'true').lower() == 'true'
+
+        if current_year_only and 'academic_year' not in self.request.query_params:
+            from apps.university.models import AcademicYear
+            current_year = AcademicYear.objects.filter(is_current=True).first()
+            if current_year:
+                queryset = queryset.filter(academic_year=current_year)
+        return queryset
+
     permission_classes = [IsAuthenticated, IsAccountantOrAdmin]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['student', 'academic_year']
@@ -487,6 +533,34 @@ class SalaryViewSet(viewsets.ModelViewSet):
     queryset = Salary.objects.select_related(
         'employee', 'processed_by'
     ).all()
+
+    def get_queryset(self):
+        """Filter by current academic year date range by default."""
+        queryset = super().get_queryset()
+        
+        # If explicit year/month filter, don't override
+        if 'year' in self.request.query_params or 'month' in self.request.query_params:
+            return queryset
+
+        # Filter by current academic year if requested (default True)
+        current_year_only = self.request.query_params.get('current_year_only', 'true').lower() == 'true'
+
+        if current_year_only:
+            from apps.university.models import AcademicYear
+            current_year = AcademicYear.objects.filter(is_current=True).first()
+            
+            if current_year:
+                start = current_year.start_date
+                end = current_year.end_date
+                
+                queryset = queryset.filter(
+                    Q(year__gt=start.year) | Q(year=start.year, month__gte=start.month)
+                ).filter(
+                    Q(year__lt=end.year) | Q(year=end.year, month__lte=end.month)
+                )
+            
+        return queryset
+
     permission_classes = [IsAuthenticated, IsAccountantOrAdmin]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['employee', 'month', 'year', 'status']
@@ -641,6 +715,27 @@ class ExpenseViewSet(viewsets.ModelViewSet):
     queryset = Expense.objects.select_related(
         'approved_by', 'created_by'
     ).all()
+
+    def get_queryset(self):
+        """Filter by current academic year date range by default."""
+        queryset = super().get_queryset()
+        
+        # If explicit date filter, don't override strongly (or intersect? let's user decide)
+        # Assuming if user didn't request specific range, they want current year context
+        if 'start_date' in self.request.query_params or 'end_date' in self.request.query_params:
+            return queryset
+
+        # Filter by current academic year if requested (default True)
+        current_year_only = self.request.query_params.get('current_year_only', 'true').lower() == 'true'
+
+        if current_year_only:
+            from apps.university.models import AcademicYear
+            current_year = AcademicYear.objects.filter(is_current=True).first()
+            if current_year:
+                queryset = queryset.filter(date__range=(current_year.start_date, current_year.end_date))
+            
+        return queryset
+
     permission_classes = [IsAuthenticated, IsAccountantOrAdmin]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['category', 'approved_by', 'created_by']
@@ -734,10 +829,15 @@ class FinanceDashboardView(APIView):
         ).aggregate(total=Sum('amount'))['total'] or 0
 
         total_salaries = Salary.objects.filter(
-            status='PAID'
+            status='PAID',
+            # Filter salaries within academic year range
+            payment_date__range=(current_year.start_date, current_year.end_date)
         ).aggregate(total=Sum('net_salary'))['total'] or 0
 
-        total_expenses = Expense.objects.aggregate(
+        total_expenses = Expense.objects.filter(
+            # Filter expenses within academic year range
+            date__range=(current_year.start_date, current_year.end_date)
+        ).aggregate(
             total=Sum('amount')
         )['total'] or 0
 

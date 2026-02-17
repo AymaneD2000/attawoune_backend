@@ -3,7 +3,8 @@ from django.db import transaction
 from django.db.models import Sum, F, Avg
 from apps.students.models import Student, StudentPromotion, Enrollment
 from apps.academics.models import CourseGrade, ReportCard
-from apps.university.models import AcademicYear, Level
+from apps.university.models import AcademicYear, Level, ProgramFee
+from apps.finance.models import StudentBalance
 
 class DeliberationService:
     @staticmethod
@@ -82,8 +83,56 @@ class DeliberationService:
                     'level_to': level_to,
                     'annual_gpa': annual_gpa,
                     'decision': decision,
-                    'remarks': remarks
                 }
             )
             
+            # 5. Automatic Enrollment for Next Year
+            if decision in [StudentPromotion.PromotionDecision.PROMOTED, StudentPromotion.PromotionDecision.REPEATED]:
+                # If Promoted, level_to is next level. If Repeated, level_to is current level.
+                # Note: logic above sets level_to correctly for both cases.
+                DeliberationService.enroll_for_next_year(student, academic_year, level_to)
+            
         return promotion
+
+    @staticmethod
+    def enroll_for_next_year(student, current_year, level_to):
+        """
+        Inscrit automatiquement l'étudiant pour l'année suivante et génère le solde.
+        """
+        # 1. Find next academic year
+        next_year = AcademicYear.objects.filter(
+            start_date__gt=current_year.start_date
+        ).order_by('start_date').first()
+        
+        if not next_year:
+            return  # No next year defined, cannot enroll
+            
+        # 2. Create Enrollment
+        if not Enrollment.objects.filter(student=student, academic_year=next_year).exists():
+            Enrollment.objects.create(
+                student=student,
+                academic_year=next_year,
+                program=student.program,
+                level=level_to,
+                status='ENROLLED'
+            )
+            
+        # 3. Create Student Balance
+        if not StudentBalance.objects.filter(student=student, academic_year=next_year).exists():
+            # Determine fee
+            try:
+                program_fee = ProgramFee.objects.get(
+                    program=student.program,
+                    level=level_to,
+                    academic_year=next_year
+                )
+                amount = program_fee.amount
+            except ProgramFee.DoesNotExist:
+                amount = student.program.tuition_fee
+                
+            StudentBalance.objects.create(
+                student=student,
+                academic_year=next_year,
+                total_due=amount,
+                total_paid=0
+            )

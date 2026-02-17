@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "apps.teachers",
     "apps.finance",
     "apps.scheduling",
+    "apps.audit",
 ]
 
 MIDDLEWARE = [
@@ -50,6 +51,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "apps.audit.middleware.AuditMiddleware",
 ]
 
 ROOT_URLCONF = "core.urls"

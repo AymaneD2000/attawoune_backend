@@ -33,6 +33,7 @@ api_v1_patterns = [
     path('academics/', include('apps.academics.urls')),
     path('finance/', include('apps.finance.urls')),
     path('scheduling/', include('apps.scheduling.urls')),
+    path('audit/', include('apps.audit.urls')),
 ]
 
 urlpatterns = [
@@ -55,6 +56,7 @@ urlpatterns = [
     path('api/academics/', include('apps.academics.urls')),
     path('api/finance/', include('apps.finance.urls')),
     path('api/scheduling/', include('apps.scheduling.urls')),
+    path('api/audit/', include('apps.audit.urls')),
 
     # API Documentation
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

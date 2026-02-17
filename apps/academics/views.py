@@ -445,12 +445,20 @@ class GradeViewSet(viewsets.ModelViewSet):
         """
         Automatically set graded_by to current user.
         Validate that teacher is assigned to the course.
+        Block writes to inactive academic years.
         """
+        from rest_framework.exceptions import PermissionDenied, ValidationError
+        
+        exam = serializer.validated_data.get('exam')
+        if exam:
+            # Block writes to inactive academic years
+            if not exam.semester.academic_year.is_current:
+                raise ValidationError(
+                    "Impossible d'ajouter des notes pour une année académique inactive."
+                )
+            
         # Validate teacher assignment if user is a teacher
-        if self.request.user.role == 'TEACHER':
-            exam = serializer.validated_data.get('exam')
-            if exam:
-                # Check if teacher is assigned to this course
+            if self.request.user.role == 'TEACHER':
                 from apps.teachers.models import TeacherCourse
                 is_assigned = TeacherCourse.objects.filter(
                     teacher__user=self.request.user,
@@ -459,18 +467,34 @@ class GradeViewSet(viewsets.ModelViewSet):
                 ).exists()
                 
                 if not is_assigned:
-                    from rest_framework.exceptions import PermissionDenied
                     raise PermissionDenied(
                         "Vous n'êtes pas assigné à ce cours pour ce semestre."
                     )
         
+        # Check if student is already deliberated for this year
+        student = serializer.validated_data['student']
+        academic_year = exam.semester.academic_year
+        
+        from apps.students.models import StudentPromotion
+        if StudentPromotion.objects.filter(student=student, academic_year=academic_year).exists():
+            raise ValidationError("Impossible d'ajouter une note : l'étudiant a déjà été délibéré pour cette année.")
+
         serializer.save(graded_by=self.request.user)
     
     def perform_update(self, serializer):
         """
         Automatically update graded_by to current user.
         Validate that teacher is assigned to the course.
+        Block writes to inactive academic years.
         """
+        from rest_framework.exceptions import ValidationError
+        
+        # Block updates to grades in inactive academic years
+        grade = self.get_object()
+        if not grade.exam.semester.academic_year.is_current:
+            raise ValidationError(
+                "Impossible de modifier les notes d'une année académique inactive."
+            )
         # Validate teacher assignment if user is a teacher
         if self.request.user.role == 'TEACHER':
             exam = serializer.validated_data.get('exam') or serializer.instance.exam
@@ -489,6 +513,15 @@ class GradeViewSet(viewsets.ModelViewSet):
                         "Vous n'êtes pas assigné à ce cours pour ce semestre."
                     )
         
+        # Check if student is already deliberated for this year
+        student = serializer.instance.student
+        exam = serializer.instance.exam
+        academic_year = exam.semester.academic_year
+        
+        from apps.students.models import StudentPromotion
+        if StudentPromotion.objects.filter(student=student, academic_year=academic_year).exists():
+            raise ValidationError("Impossible de modifier la note : l'étudiant a déjà été délibéré pour cette année.")
+
         serializer.save(graded_by=self.request.user)
     
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated, IsTeacherOrAdmin])
@@ -1303,6 +1336,13 @@ class DeliberationViewSet(viewsets.ViewSet):
         except AcademicYear.DoesNotExist:
             return Response({'error': 'Année académique introuvable'}, status=status.HTTP_404_NOT_FOUND)
 
+        # Deliberation is only allowed for the current academic year
+        if not academic_year.is_current:
+            return Response(
+                {'error': 'La délibération ne peut être effectuée que pour l\'année académique en cours.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         students_to_process = []
 
         if student_id:
@@ -1312,6 +1352,13 @@ class DeliberationViewSet(viewsets.ViewSet):
             except Student.DoesNotExist:
                 return Response({'error': 'Étudiant introuvable'}, status=status.HTTP_404_NOT_FOUND)
         elif program_id:
+            # Check if deliberation already exists for this program and year
+            from apps.students.models import StudentPromotion
+            if StudentPromotion.objects.filter(program_id=program_id, academic_year=academic_year).exists():
+                return Response(
+                    {'error': 'La délibération a déjà été effectuée pour ce programme pour cette année.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             students_to_process = Student.objects.filter(program_id=program_id, status='ACTIVE')
         else:
             return Response({'error': 'student_id ou program_id requis'}, status=status.HTTP_400_BAD_REQUEST)
@@ -1336,6 +1383,45 @@ class DeliberationViewSet(viewsets.ViewSet):
 
         return Response({
             'processed_count': len(results),
+            'results': results
+        })
+
+    @action(detail=False, methods=['get'])
+    def results(self, request):
+        """
+        Récupérer les résultats de délibération existants.
+        """
+        from apps.students.models import Student, StudentPromotion
+        from apps.university.models import AcademicYear
+
+        academic_year_id = request.query_params.get('academic_year_id')
+        program_id = request.query_params.get('program_id')
+
+        if not academic_year_id:
+            return Response({'error': 'academic_year_id requis'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            academic_year = AcademicYear.objects.get(pk=academic_year_id)
+        except AcademicYear.DoesNotExist:
+            return Response({'error': 'Année académique introuvable'}, status=status.HTTP_404_NOT_FOUND)
+
+        promotions = StudentPromotion.objects.filter(academic_year=academic_year)
+        if program_id:
+            promotions = promotions.filter(program_id=program_id)
+
+        results = []
+        for promo in promotions:
+             results.append({
+                'student': promo.student.user.get_full_name(),
+                'matricule': promo.student.student_id,
+                'decision': promo.get_decision_display(),
+                'annual_gpa': promo.annual_gpa,
+                'next_level': promo.level_to.name if promo.level_to else None,
+                'remarks': promo.remarks
+            })
+
+        return Response({
+            'count': len(results),
             'results': results
         })
 
