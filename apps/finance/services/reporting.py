@@ -41,9 +41,26 @@ class FinancialReportService:
         if program:
             program_name = program.name
             
-            # 1. Try to get year-specific fee
+            # Determine level for fee lookup
+            level = enrollment.level if enrollment else student.current_level
+            
+            # 1. Try to get level-specific fee for the year
             if academic_year:
-                fee_config = TuitionFee.objects.filter(program=program, academic_year=academic_year).first()
+                # First try with level
+                fee_config = TuitionFee.objects.filter(
+                    program=program, 
+                    academic_year=academic_year,
+                    level=level
+                ).first()
+                
+                # If not found, try without level (generic program fee)
+                if not fee_config:
+                    fee_config = TuitionFee.objects.filter(
+                        program=program, 
+                        academic_year=academic_year,
+                        level__isnull=True
+                    ).first()
+                
                 if fee_config:
                     total_due = fee_config.amount
             

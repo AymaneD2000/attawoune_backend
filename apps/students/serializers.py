@@ -16,7 +16,7 @@ class StudentListSerializer(serializers.ModelSerializer):
         model = Student
         fields = [
             'id', 'user', 'student_id', 'user_name', 'program_name', 
-            'level_display', 'status', 'status_display', 'enrollment_date',
+            'current_level', 'level_display', 'status', 'status_display', 'enrollment_date',
             'photo'
         ]
 
@@ -39,6 +39,7 @@ class StudentDetailSerializer(serializers.ModelSerializer):
     )
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     enrollments_count = serializers.SerializerMethodField()
+    program_levels = serializers.SerializerMethodField()
     
     class Meta:
         model = Student
@@ -46,6 +47,15 @@ class StudentDetailSerializer(serializers.ModelSerializer):
     
     def get_enrollments_count(self, obj):
         return obj.enrollments.count()
+
+    def get_program_levels(self, obj):
+        """Return levels associated with the student's program."""
+        if obj.program:
+            return [
+                {'id': level.id, 'display_name': level.display_name}
+                for level in obj.program.levels.all()
+            ]
+        return []
 
 
 class StudentCreateSerializer(serializers.ModelSerializer):

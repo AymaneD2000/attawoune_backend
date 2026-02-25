@@ -39,7 +39,7 @@ class TuitionPaymentListSerializer(serializers.ModelSerializer):
             'academic_year', 'academic_year_name', 'level', 'level_name',
             'semester', 'semester_name', 'amount', 'payment_method',
             'payment_method_display', 'status', 'status_display', 'reference',
-            'payment_date', 'received_by', 'received_by_name'
+            'payment_date', 'created_at', 'received_by', 'received_by_name'
         ]
 
 
@@ -128,13 +128,14 @@ class TuitionFeeListSerializer(serializers.ModelSerializer):
     academic_year_name = serializers.CharField(
         source='academic_year.name', read_only=True
     )
+    level_name = serializers.CharField(source='level.display_name', read_only=True)
     
     class Meta:
         model = TuitionFee
         fields = [
             'id', 'program', 'program_name', 'program_code',
-            'academic_year', 'academic_year_name', 'amount',
-            'installments_allowed', 'due_date'
+            'academic_year', 'academic_year_name', 'level', 'level_name',
+            'amount', 'installments_allowed', 'due_date'
         ]
 
 
@@ -166,7 +167,7 @@ class TuitionFeeCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = TuitionFee
         fields = [
-            'program', 'academic_year', 'amount', 'installments_allowed', 'due_date'
+            'program', 'academic_year', 'level', 'amount', 'installments_allowed', 'due_date'
         ]
         # Remove default unique_together validator to use custom validation
         validators = []
@@ -196,9 +197,10 @@ class TuitionFeeCreateSerializer(serializers.ModelSerializer):
         if program and academic_year:
             # Only check for duplicates on create (when instance is None)
             if not self.instance:
-                if TuitionFee.objects.filter(program=program, academic_year=academic_year).exists():
+                level = attrs.get('level')
+                if TuitionFee.objects.filter(program=program, academic_year=academic_year, level=level).exists():
                     raise serializers.ValidationError({
-                        "program": "Des frais de scolarité existent déjà pour ce programme et cette année académique."
+                        "non_field_errors": ["Des frais de scolarité existent déjà pour ce programme, cette année académique et ce niveau."]
                     })
         
         return attrs
@@ -224,11 +226,15 @@ class StudentBalanceListSerializer(serializers.ModelSerializer):
     )
     is_paid = serializers.BooleanField(read_only=True)
     
+    student_level = serializers.CharField(
+        source='student.current_level.get_name_display', read_only=True
+    )
+    
     class Meta:
         model = StudentBalance
         fields = [
             'id', 'student', 'student_name', 'student_matricule', 'student_program',
-            'academic_year', 'academic_year_name', 'total_due',
+            'student_level', 'academic_year', 'academic_year_name', 'total_due',
             'total_paid', 'balance', 'is_paid', 'updated_at'
         ]
 
@@ -295,7 +301,7 @@ class SalaryListSerializer(serializers.ModelSerializer):
             'id', 'employee', 'employee_name', 'employee_email',
             'month', 'year', 'base_salary', 'bonuses', 'deductions',
             'net_salary', 'status', 'status_display', 'payment_date',
-            'processed_by', 'processed_by_name'
+            'processed_by', 'processed_by_name', 'created_at'
         ]
 
 

@@ -32,6 +32,8 @@ from .serializers import (
     StudentBalanceSerializer, SalarySerializer, ExpenseSerializer
 )
 from apps.university.models import AcademicYear
+from .services.excel import PaymentExcelService, SalaryExcelService, ExpenseExcelService
+from django.http import HttpResponse
 
 
 class TuitionPaymentViewSet(viewsets.ModelViewSet):
@@ -89,7 +91,7 @@ class TuitionPaymentViewSet(viewsets.ModelViewSet):
     filterset_fields = ['student', 'academic_year', 'payment_method', 'status']
     search_fields = ['reference', 'receipt_number', 'student__user__first_name', 'student__user__last_name', 'student__student_id']
     ordering_fields = ['payment_date', 'amount', 'created_at']
-    ordering = ['-payment_date']
+    ordering = ['-created_at']
     
     def get_serializer_class(self):
         """Return appropriate serializer based on action."""
@@ -222,6 +224,48 @@ class TuitionPaymentViewSet(viewsets.ModelViewSet):
             'total_paid': total_paid,
             'results': serializer.data
         })
+
+    @action(detail=False, methods=['get'])
+    def export_excel(self, request):
+        """Export filtered payments to Excel."""
+        queryset = self.filter_queryset(self.get_queryset())
+        excel_file = PaymentExcelService.export_payments(queryset)
+
+        response = HttpResponse(
+            excel_file,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="paiements.xlsx"'
+        return response
+
+    @action(detail=False, methods=['get'])
+    def download_template(self, request):
+        """Download import template for payments."""
+        excel_file = PaymentExcelService.download_template()
+
+        response = HttpResponse(
+            excel_file,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="template_import_paiements.xlsx"'
+        return response
+
+    @action(detail=False, methods=['post'])
+    def import_excel(self, request):
+        """Import payments from Excel."""
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return Response(
+                {"error": "Aucun fichier fourni"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        success_count, errors = PaymentExcelService.import_payments(file_obj, request.user)
+
+        return Response({
+            "success_count": success_count,
+            "errors": errors
+        }, status=status.HTTP_201_CREATED if success_count > 0 else status.HTTP_400_BAD_REQUEST)
 
 
 class TuitionFeeViewSet(viewsets.ModelViewSet):
@@ -403,11 +447,28 @@ class StudentBalanceViewSet(viewsets.ModelViewSet):
             status='COMPLETED'
         ).aggregate(total=Sum('amount'))['total'] or 0
         
-        # Get tuition fee for the program
+        # Get tuition fee (prioritize level-specific)
+        from apps.students.models import Enrollment
+        enrollment = Enrollment.objects.filter(
+            student=balance.student, 
+            academic_year=balance.academic_year,
+            is_active=True
+        ).first()
+        level = enrollment.level if enrollment else balance.student.current_level
+
         tuition_fee = TuitionFee.objects.filter(
             program=balance.student.program,
-            academic_year=balance.academic_year
+            academic_year=balance.academic_year,
+            level=level
         ).first()
+
+        if not tuition_fee:
+             # Try generic fee for the program/year
+             tuition_fee = TuitionFee.objects.filter(
+                program=balance.student.program,
+                academic_year=balance.academic_year,
+                level__isnull=True
+            ).first()
         
         if tuition_fee:
             balance.total_due = tuition_fee.amount
@@ -682,6 +743,44 @@ class SalaryViewSet(viewsets.ModelViewSet):
             'results': serializer.data
         })
 
+    @action(detail=False, methods=['get'])
+    def export_excel(self, request):
+        """Export filtered salaries to Excel."""
+        queryset = self.filter_queryset(self.get_queryset())
+        excel_file = SalaryExcelService.export_salaries(queryset)
+        response = HttpResponse(
+            excel_file,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="salaires.xlsx"'
+        return response
+
+    @action(detail=False, methods=['get'])
+    def download_template(self, request):
+        """Download import template for salaries."""
+        excel_file = SalaryExcelService.download_template()
+        response = HttpResponse(
+            excel_file,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="template_import_salaires.xlsx"'
+        return response
+
+    @action(detail=False, methods=['post'])
+    def import_excel(self, request):
+        """Import salaries from Excel."""
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return Response(
+                {"error": "Aucun fichier fourni"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        success_count, errors = SalaryExcelService.import_salaries(file_obj, request.user)
+        return Response({
+            "success_count": success_count,
+            "errors": errors
+        }, status=status.HTTP_201_CREATED if success_count > 0 else status.HTTP_400_BAD_REQUEST)
+
 
 class ExpenseViewSet(viewsets.ModelViewSet):
     """
@@ -792,6 +891,44 @@ class ExpenseViewSet(viewsets.ModelViewSet):
             'total_expenses': total,
             'by_category': list(summary)
         })
+
+    @action(detail=False, methods=['get'])
+    def export_excel(self, request):
+        """Export filtered expenses to Excel."""
+        queryset = self.filter_queryset(self.get_queryset())
+        excel_file = ExpenseExcelService.export_expenses(queryset)
+        response = HttpResponse(
+            excel_file,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="depenses.xlsx"'
+        return response
+
+    @action(detail=False, methods=['get'])
+    def download_template(self, request):
+        """Download import template for expenses."""
+        excel_file = ExpenseExcelService.download_template()
+        response = HttpResponse(
+            excel_file,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="template_import_depenses.xlsx"'
+        return response
+
+    @action(detail=False, methods=['post'])
+    def import_excel(self, request):
+        """Import expenses from Excel."""
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return Response(
+                {"error": "Aucun fichier fourni"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        success_count, errors = ExpenseExcelService.import_expenses(file_obj, request.user)
+        return Response({
+            "success_count": success_count,
+            "errors": errors
+        }, status=status.HTTP_201_CREATED if success_count > 0 else status.HTTP_400_BAD_REQUEST)
 
 
 class FinanceDashboardView(APIView):

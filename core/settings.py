@@ -138,10 +138,13 @@ SIMPLE_JWT = {
 }
 
 # CORS Configuration
-CORS_ALLOWED_ORIGINS = config(
-    'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://127.0.0.1:3000,https://attawoune-frontend-w7de.vercel.app,http://lk40s80skcocogs4kkogcgc4.62.171.157.196.sslip.io'
-).split(',')
+CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=True, cast=bool)
+CORS_ALLOWED_ORIGINS = [
+    origin.rstrip('/') for origin in config(
+        'CORS_ALLOWED_ORIGINS',
+        default='http://localhost:3000,http://127.0.0.1:3000,https://attawoune-frontend-w7de.vercel.app,http://lk40s80skcocogs4kkogcgc4.62.171.157.196.sslip.io'
+    ).split(',')
+]
 CORS_ALLOW_CREDENTIALS = True
 
 # CSRF Trusted Origins

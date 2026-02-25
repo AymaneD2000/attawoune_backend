@@ -113,6 +113,14 @@ class TuitionFee(models.Model):
         decimal_places=2,
         verbose_name="Montant"
     )
+    level = models.ForeignKey(
+        'university.Level',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tuition_fees',
+        verbose_name="Niveau"
+    )
     installments_allowed = models.PositiveIntegerField(
         default=1,
         verbose_name="Nombre de tranches"
@@ -122,7 +130,7 @@ class TuitionFee(models.Model):
     class Meta:
         verbose_name = "Frais de scolarité"
         verbose_name_plural = "Frais de scolarité"
-        unique_together = ['program', 'academic_year']
+        unique_together = ['program', 'academic_year', 'level']
 
     def __str__(self):
         return f"{self.program} - {self.academic_year}: {self.amount}"

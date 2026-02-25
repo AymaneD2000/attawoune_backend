@@ -17,9 +17,11 @@ from .models import Student, Enrollment, Attendance
 from .serializers import (
     StudentListSerializer, StudentDetailSerializer, StudentCreateSerializer,
     EnrollmentListSerializer, EnrollmentDetailSerializer, EnrollmentCreateSerializer,
-    AttendanceListSerializer, AttendanceDetailSerializer, AttendanceCreateSerializer,
+    AttendanceDetailSerializer, AttendanceCreateSerializer,
     AttendanceBulkCreateSerializer
 )
+from .services.excel import StudentExcelService
+from django.http import HttpResponse
 
 
 class StudentViewSet(viewsets.ModelViewSet):
@@ -378,6 +380,48 @@ class StudentViewSet(viewsets.ModelViewSet):
         response = HttpResponse(zip_buffer, content_type='application/zip')
         response['Content-Disposition'] = 'attachment; filename="cartes_etudiants.zip"'
         return response
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated, IsSecretaryOrAdmin])
+    def export_excel(self, request):
+        """Export filtered students to Excel."""
+        queryset = self.filter_queryset(self.get_queryset())
+        excel_file = StudentExcelService.export_students(queryset)
+        
+        response = HttpResponse(
+            excel_file,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="etudiants.xlsx"'
+        return response
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated, IsSecretaryOrAdmin])
+    def download_template(self, request):
+        """Download import template."""
+        excel_file = StudentExcelService.download_template()
+        
+        response = HttpResponse(
+            excel_file,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="template_import_etudiants.xlsx"'
+        return response
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated, IsSecretaryOrAdmin])
+    def import_excel(self, request):
+        """Import students from Excel."""
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return Response(
+                {"error": "Aucun fichier fourni"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        success_count, errors = StudentExcelService.import_students(file_obj)
+        
+        return Response({
+            "success_count": success_count,
+            "errors": errors
+        }, status=status.HTTP_201_CREATED if success_count > 0 else status.HTTP_400_BAD_REQUEST)
 
 class EnrollmentViewSet(viewsets.ModelViewSet):
     """
