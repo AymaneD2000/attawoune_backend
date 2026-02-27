@@ -12,6 +12,9 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
+    cron \
+    curl \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
@@ -21,8 +24,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project
 COPY . /app/
 
+# Make scripts executable
+RUN chmod +x /app/entrypoint.sh /app/docker_backup.sh
+
 # Expose port
 EXPOSE 8000
 
-# Start server with gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "core.wsgi:application"]
+# Use entrypoint that runs migrations safely, then starts server
+ENTRYPOINT ["/app/entrypoint.sh"]
