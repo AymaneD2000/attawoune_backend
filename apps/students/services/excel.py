@@ -15,7 +15,7 @@ class StudentExcelService:
 
     HEADERS = [
         'Matricule', 'Prénom', 'Nom', 'Email', 'Sexe', 'Date Naissance',
-        'Téléphone', 'Programme', 'Niveau Actuel', 'Date Inscription',
+        'Téléphone', 'Code Programme', 'Niveau Actuel', 'Date Inscription',
         'Statut', 'Nom Tuteur', 'Téléphone Tuteur', 'Contact Urgence'
     ]
 
@@ -39,7 +39,7 @@ class StudentExcelService:
                 student.user.get_gender_display(),
                 student.user.date_of_birth,
                 student.user.phone,
-                student.program.name,
+                student.program.code if student.program else "",
                 student.current_level.name if student.current_level else "",
                 student.enrollment_date,
                 student.get_status_display(),
@@ -67,7 +67,7 @@ class StudentExcelService:
         # Add an example row
         ws.append([
             "", "Jean", "Dupont", "jean.dupont@example.com", "M", "2000-01-01",
-            "+221770000000", "L1 Informatique",
+            "+221770000000", "INFO",
             "L1", "2023-10-01", "ACTIVE", "Tuteur Dupont",
             "+221780000000", "Contact Urgence"
         ])
@@ -102,7 +102,7 @@ class StudentExcelService:
                 with transaction.atomic():
                     # Parse data from row
                     # Headers: Matricule[0], Prénom[1], Nom[2], Email[3], Sexe[4], Date Naissance[5],
-                    # Téléphone[6], Programme[7], Niveau Actuel[8], Date Inscription[9],
+                    # Téléphone[6], Code Programme[7], Niveau Actuel[8], Date Inscription[9],
                     # Statut[10], Nom Tuteur[11], Téléphone Tuteur[12], Contact Urgence[13]
                     
                     def parse_date(val):
@@ -126,7 +126,7 @@ class StudentExcelService:
                     gender = row[4] or 'M'
                     birth_date = parse_date(row[5])
                     phone = row[6]
-                    program_name = row[7]
+                    program_code = row[7]
                     level_name = row[8]
                     enroll_date = parse_date(row[9]) or timezone.now().date()
                     status = row[10] or 'ACTIVE'
@@ -134,8 +134,8 @@ class StudentExcelService:
                     guardian_phone = row[12]
                     emergency_contact = row[13]
 
-                    if not (first_name and last_name and email and program_name):
-                        raise ValidationError("Les champs Prénom, Nom, Email et Programme sont obligatoires.")
+                    if not (first_name and last_name and email and program_code):
+                        raise ValidationError("Les champs Prénom, Nom, Email et Code Programme sont obligatoires.")
 
                     # 1. Handle User
                     user, created = User.objects.get_or_create(
@@ -157,11 +157,21 @@ class StudentExcelService:
                             raise ValidationError(f"L'utilisateur {email} existe déjà et n'est pas un étudiant.")
 
                     # 2. Find Program and Level
-                    try:
-                        program = Program.objects.get(name__iexact=program_name)
-                    except Program.DoesNotExist:
-                        # Try searching by code
-                        program = Program.objects.get(code__iexact=program_name)
+                    program_code_extracted = None
+                    if program_code and " - " in str(program_code):
+                        program_code_extracted = str(program_code).split(" - ")[0].strip()
+                    else:
+                        program_code_extracted = str(program_code).strip() if program_code else None
+
+                    program = None
+                    if program_code_extracted:
+                        program = Program.objects.filter(code__iexact=program_code_extracted).first()
+                    
+                    if not program:
+                        program = Program.objects.filter(name__iexact=program_code).first()
+                        
+                    if not program:
+                        raise ValidationError(f"Programme avec le code '{program_code}' introuvable.")
                     
                     level = None
                     if level_name:
