@@ -1,0 +1,77 @@
+[
+{
+  "model": "accounts.user",
+  "fields": {
+    "password": "pbkdf2_sha256$600000$HFZW94O7h32wRLQrMWeM4I$adddAkJke4bjq90jbMIkS01OCLofhebtELvtavo3QZM=",
+    "last_login": "2026-02-11T13:36:20.542Z",
+    "is_superuser": true,
+    "username": "admin",
+    "first_name": "Administrateur",
+    "last_name": "Système",
+    "email": "admin@attawoune.edu",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-02T11:23:45.873Z",
+    "role": "ADMIN",
+    "gender": "M",
+    "phone": "",
+    "address": "",
+    "profile_picture": "",
+    "date_of_birth": null,
+    "created_at": "2026-02-02T11:23:45.971Z",
+    "updated_at": "2026-02-11T09:52:01.990Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "accounts.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$t2fJAVYPF650Ckl0sSi4p1$lvSpo+OlkE1x6Xck1/unnXETHCVPM9SqHoZ2WyF9jzI=",
+    "last_login": "2026-02-22T14:03:28.340Z",
+    "is_superuser": true,
+    "username": "aymane",
+    "first_name": "",
+    "last_name": "",
+    "email": "aymane@gmail.com",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-14T15:43:20Z",
+    "role": "ADMIN",
+    "gender": "M",
+    "phone": "",
+    "address": "",
+    "profile_picture": "",
+    "date_of_birth": null,
+    "created_at": "2026-02-14T15:43:20.450Z",
+    "updated_at": "2026-02-14T15:52:04.936Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "accounts.user",
+  "fields": {
+    "password": "",
+    "last_login": null,
+    "is_superuser": true,
+    "username": "test_admin",
+    "first_name": "",
+    "last_name": "",
+    "email": "",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-02-15T10:53:55.798Z",
+    "role": "STUDENT",
+    "gender": "M",
+    "phone": "",
+    "address": "",
+    "profile_picture": "",
+    "date_of_birth": null,
+    "created_at": "2026-02-15T10:53:55.798Z",
+    "updated_at": "2026-02-15T10:53:55.798Z",
+    "groups": [],
+    "user_permissions": []
+  }
+}
+]
