@@ -424,6 +424,14 @@ class StudentBalanceViewSet(viewsets.ModelViewSet):
         
         total_outstanding = queryset.aggregate(total=Sum('computed_balance'))['total'] or 0
         
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = StudentBalanceListSerializer(page, many=True)
+            response = self.get_paginated_response(serializer.data)
+            # Add custom field to paginated response
+            response.data['total_outstanding'] = total_outstanding
+            return response
+            
         serializer = StudentBalanceListSerializer(queryset, many=True)
         return Response({
             'count': queryset.count(),

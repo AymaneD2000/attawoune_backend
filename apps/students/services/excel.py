@@ -89,8 +89,40 @@ class StudentExcelService:
             return 0, [f"Format de fichier invalide: {str(e)}"]
 
         ws = wb.active
+
+        # --- Detect header row and build column index map ---
+        header_row = [str(cell.value).strip() if cell.value else "" for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+
+        def col(names):
+            """Return first matching column index (0-based) from list of possible header names."""
+            for name in names:
+                for i, h in enumerate(header_row):
+                    if h.lower() == name.lower():
+                        return i
+            return None
+
+        idx_matricule   = col(['Matricule'])
+        idx_first_name  = col(['Prénom', 'Prenom', 'First Name'])
+        idx_last_name   = col(['Nom', 'Last Name'])
+        idx_email       = col(['Email', 'E-mail'])
+        idx_gender      = col(['Sexe', 'Genre', 'Gender'])
+        idx_birth       = col(['Date Naissance', 'Date de naissance', 'Naissance'])
+        idx_phone       = col(['Téléphone', 'Telephone', 'Phone'])
+        idx_program     = col(['Code Programme', 'Programme', 'Program'])
+        idx_level       = col(['Niveau Actuel', 'Niveau', 'Level'])
+        idx_enroll_date = col(['Date Inscription', 'Date d\'inscription'])
+        idx_status      = col(['Statut', 'Status'])
+        idx_guardian    = col(['Nom Tuteur', 'Tuteur'])
+        idx_guardian_ph = col(['Téléphone Tuteur'])
+        idx_emergency   = col(['Contact Urgence', 'Urgence'])
+
+        def get(row, idx, default=None):
+            if idx is None or idx >= len(row):
+                return default
+            val = row[idx]
+            return str(val).strip() if val is not None else default
+
         rows = list(ws.iter_rows(min_row=2, values_only=True))
-        
         success_count = 0
         errors = []
 
@@ -100,18 +132,13 @@ class StudentExcelService:
 
             try:
                 with transaction.atomic():
-                    # Parse data from row
-                    # Headers: Matricule[0], Prénom[1], Nom[2], Email[3], Sexe[4], Date Naissance[5],
-                    # Téléphone[6], Code Programme[7], Niveau Actuel[8], Date Inscription[9],
-                    # Statut[10], Nom Tuteur[11], Téléphone Tuteur[12], Contact Urgence[13]
-                    
+
                     def parse_date(val):
                         if not val:
                             return None
                         if isinstance(val, (date, datetime)):
                             return val.date() if isinstance(val, datetime) else val
                         if isinstance(val, str):
-                            # Try common formats
                             for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y"):
                                 try:
                                     return datetime.strptime(val, fmt).date()
@@ -119,23 +146,46 @@ class StudentExcelService:
                                     continue
                         return None
 
-                    student_id_val = row[0]
-                    first_name = row[1]
-                    last_name = row[2]
-                    email = row[3]
-                    gender = row[4] or 'M'
-                    birth_date = parse_date(row[5])
-                    phone = row[6]
-                    program_code = row[7]
-                    level_name = row[8]
-                    enroll_date = parse_date(row[9]) or timezone.now().date()
-                    status = row[10] or 'ACTIVE'
-                    guardian_name = row[11]
-                    guardian_phone = row[12]
-                    emergency_contact = row[13]
+                    student_id_val   = get(row, idx_matricule)
+                    first_name       = get(row, idx_first_name)
+                    last_name        = get(row, idx_last_name)
+                    email            = get(row, idx_email)
+                    gender           = get(row, idx_gender) or 'M'
+                    birth_date       = parse_date(row[idx_birth] if idx_birth is not None else None)
+                    phone            = get(row, idx_phone) or ''
+                    program_val      = get(row, idx_program)
+                    level_name       = get(row, idx_level)
+                    enroll_date_raw  = row[idx_enroll_date] if idx_enroll_date is not None else None
+                    enroll_date      = parse_date(enroll_date_raw) or timezone.now().date()
+                    status           = get(row, idx_status) or 'ACTIVE'
+                    guardian_name    = get(row, idx_guardian) or ''
+                    guardian_phone   = get(row, idx_guardian_ph) or ''
+                    emergency_contact= get(row, idx_emergency) or ''
 
-                    if not (first_name and last_name and email and program_code):
-                        raise ValidationError("Les champs Prénom, Nom, Email et Code Programme sont obligatoires.")
+                    if not (first_name and last_name and program_val):
+                        raise ValidationError("Les champs Prénom, Nom et Programme sont obligatoires.")
+
+                    # Auto-generate email if missing
+                    import re, unicodedata
+                    def slugify(text):
+                        text = unicodedata.normalize('NFKD', text)
+                        text = text.encode('ascii', 'ignore').decode('ascii')
+                        text = re.sub(r'[^\w\s-]', '', text).strip().lower()
+                        return re.sub(r'[\s]+', '.', text)
+
+                    if not email:
+                        base = f"{slugify(first_name)}.{slugify(last_name)}"
+                        if not base or base == '.':
+                            # Fallback for non-latin names: use row index
+                            base = f"etudiant{row_idx}"
+                        email = f"{base}@attawoune.edu"
+
+                    # Normalize gender
+                    gender_upper = gender.upper() if gender else 'M'
+                    if gender_upper in ('F', 'FEMME', 'FEMALE'):
+                        gender_norm = 'F'
+                    else:
+                        gender_norm = 'M'
 
                     # 1. Handle User
                     user, created = User.objects.get_or_create(
@@ -145,44 +195,44 @@ class StudentExcelService:
                             'first_name': first_name,
                             'last_name': last_name,
                             'role': 'STUDENT',
-                            'gender': gender,
+                            'gender': gender_norm,
                             'date_of_birth': birth_date,
                             'phone': phone,
                         }
                     )
-                    
+
                     if not created:
-                        # Ensure user is a student
                         if user.role != 'STUDENT':
                             raise ValidationError(f"L'utilisateur {email} existe déjà et n'est pas un étudiant.")
 
-                    # 2. Find Program and Level
-                    program_code_extracted = None
-                    if program_code and " - " in str(program_code):
-                        program_code_extracted = str(program_code).split(" - ")[0].strip()
-                    else:
-                        program_code_extracted = str(program_code).strip() if program_code else None
+                    # 2. Find Program — try code first, then full name
+                    program_code_part = None
+                    if " - " in program_val:
+                        program_code_part = program_val.split(" - ")[0].strip()
 
                     program = None
-                    if program_code_extracted:
-                        program = Program.objects.filter(code__iexact=program_code_extracted).first()
-                    
+                    if program_code_part:
+                        program = Program.objects.filter(code__iexact=program_code_part).first()
                     if not program:
-                        program = Program.objects.filter(name__iexact=program_code).first()
-                        
+                        program = Program.objects.filter(code__iexact=program_val).first()
                     if not program:
-                        raise ValidationError(f"Programme avec le code '{program_code}' introuvable.")
-                    
+                        program = Program.objects.filter(name__iexact=program_val).first()
+                    if not program:
+                        program = Program.objects.filter(name__icontains=program_val).first()
+
+                    if not program:
+                        raise ValidationError(f"Programme '{program_val}' introuvable. Vérifiez le nom ou le code du programme.")
+
+                    # 3. Find Level
                     level = None
                     if level_name:
-                        level = Level.objects.filter(models.Q(name__iexact=level_name) | models.Q(name__icontains=level_name)).first()
-                    
-                    if not level and program:
-                        # Pick first level for program if not specified? 
-                        # Better to error and ask for clarity if level is ambiguous.
+                        level = Level.objects.filter(
+                            models.Q(name__iexact=level_name) | models.Q(name__icontains=level_name)
+                        ).first()
+                    if not level:
                         level = program.levels.first()
 
-                    # 3. Handle Student Profile
+                    # 4. Handle Student Profile
                     student, s_created = Student.objects.update_or_create(
                         user=user,
                         defaults={
@@ -190,17 +240,17 @@ class StudentExcelService:
                             'current_level': level,
                             'enrollment_date': enroll_date,
                             'status': status,
-                            'guardian_name': guardian_name or "",
-                            'guardian_phone': guardian_phone or "",
-                            'emergency_contact': emergency_contact or "",
+                            'guardian_name': guardian_name,
+                            'guardian_phone': guardian_phone,
+                            'emergency_contact': emergency_contact,
                         }
                     )
-                    
-                    if student_id_val:
-                         student.student_id = student_id_val
-                         student.save()
 
-                    # 4. Handle Enrollment for current year
+                    if student_id_val:
+                        student.student_id = student_id_val
+                        student.save()
+
+                    # 5. Handle Enrollment for current year
                     try:
                         current_year = AcademicYear.objects.get(is_current=True)
                         Enrollment.objects.get_or_create(
@@ -221,3 +271,4 @@ class StudentExcelService:
                 errors.append(f"Ligne {row_idx}: {str(e)}")
 
         return success_count, errors
+

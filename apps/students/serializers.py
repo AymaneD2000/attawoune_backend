@@ -6,6 +6,8 @@ from .models import Student, Enrollment, Attendance
 class StudentListSerializer(serializers.ModelSerializer):
     """List serializer for Student with basic fields."""
     user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
     program_name = serializers.CharField(source='program.name', read_only=True)
     level_display = serializers.CharField(
         source='current_level.get_name_display', read_only=True
@@ -15,7 +17,7 @@ class StudentListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
         fields = [
-            'id', 'user', 'student_id', 'user_name', 'program_name', 
+            'id', 'user', 'student_id', 'user_name', 'first_name', 'last_name', 'program_name', 
             'current_level', 'level_display', 'status', 'status_display', 'enrollment_date',
             'photo'
         ]
@@ -24,6 +26,9 @@ class StudentListSerializer(serializers.ModelSerializer):
 class StudentDetailSerializer(serializers.ModelSerializer):
     """Detail serializer for Student with all fields and computed properties."""
     user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    date_of_birth = serializers.DateField(source='user.date_of_birth', read_only=True)
     user_email = serializers.CharField(source='user.email', read_only=True)
     user_phone = serializers.CharField(source='user.phone', read_only=True)
     program_name = serializers.CharField(source='program.name', read_only=True)
