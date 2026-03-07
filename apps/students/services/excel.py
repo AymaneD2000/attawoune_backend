@@ -178,7 +178,17 @@ class StudentExcelService:
                         if not base or base == '.':
                             # Fallback for non-latin names: use row index
                             base = f"etudiant{row_idx}"
+                        
                         email = f"{base}@attawoune.edu"
+                        # Make email unique
+                        counter = 1
+                        while User.objects.filter(email=email).exists():
+                            email = f"{base}{counter}@attawoune.edu"
+                            counter += 1
+                    else:
+                        # If email provided in excel but exists, error out
+                        if User.objects.filter(email=email).exists():
+                            raise ValidationError(f"Un utilisateur avec l'email {email} existe déjà.")
 
                     # Normalize gender
                     gender_upper = gender.upper() if gender else 'M'
@@ -188,22 +198,16 @@ class StudentExcelService:
                         gender_norm = 'M'
 
                     # 1. Handle User
-                    user, created = User.objects.get_or_create(
+                    user = User.objects.create(
                         email=email,
-                        defaults={
-                            'username': email,
-                            'first_name': first_name,
-                            'last_name': last_name,
-                            'role': 'STUDENT',
-                            'gender': gender_norm,
-                            'date_of_birth': birth_date,
-                            'phone': phone,
-                        }
+                        username=email,
+                        first_name=first_name,
+                        last_name=last_name,
+                        role='STUDENT',
+                        gender=gender_norm,
+                        date_of_birth=birth_date,
+                        phone=phone,
                     )
-
-                    if not created:
-                        if user.role != 'STUDENT':
-                            raise ValidationError(f"L'utilisateur {email} existe déjà et n'est pas un étudiant.")
 
                     # 2. Find Program — try code first, then full name
                     program_code_part = None
@@ -233,17 +237,15 @@ class StudentExcelService:
                         level = program.levels.first()
 
                     # 4. Handle Student Profile
-                    student, s_created = Student.objects.update_or_create(
+                    student = Student.objects.create(
                         user=user,
-                        defaults={
-                            'program': program,
-                            'current_level': level,
-                            'enrollment_date': enroll_date,
-                            'status': status,
-                            'guardian_name': guardian_name,
-                            'guardian_phone': guardian_phone,
-                            'emergency_contact': emergency_contact,
-                        }
+                        program=program,
+                        current_level=level,
+                        enrollment_date=enroll_date,
+                        status=status,
+                        guardian_name=guardian_name,
+                        guardian_phone=guardian_phone,
+                        emergency_contact=emergency_contact,
                     )
 
                     if student_id_val:
