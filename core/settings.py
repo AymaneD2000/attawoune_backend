@@ -153,6 +153,7 @@ CSRF_TRUSTED_ORIGINS = [
     'https://attawoune-backend.onrender.com',
     'http://lk40s80skcocogs4kkogcgc4.62.171.157.196.sslip.io',
     'https://app.attawoune.ml',
+    'https://api.attawoune.ml',
 ]
 
 # API Documentation
