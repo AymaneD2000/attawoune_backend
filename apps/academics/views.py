@@ -105,7 +105,7 @@ class CourseViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
         
-        if user.role in ['ADMIN', 'SECRETARY']:
+        if user.role in ['ADMIN', 'SECRETARY', 'DEAN']:
             return self.queryset
         elif user.role == 'TEACHER':
             # Teachers can see courses they teach
@@ -330,7 +330,7 @@ class ExamViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
         
-        if user.role == 'ADMIN':
+        if user.role in ['ADMIN', 'DEAN', 'SECRETARY']:
             return self.queryset
         elif user.role == 'TEACHER':
             # Teachers can see exams for their courses
@@ -427,7 +427,7 @@ class GradeViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
         
-        if user.role == 'ADMIN':
+        if user.role in ['ADMIN', 'DEAN', 'SECRETARY']:
             return self.queryset
         elif user.role == 'TEACHER':
             # Teachers can see grades for their courses
@@ -840,7 +840,7 @@ class CourseGradeViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
         
-        if user.role == 'ADMIN':
+        if user.role in ['ADMIN', 'DEAN', 'SECRETARY']:
             return self.queryset
         elif user.role == 'TEACHER':
             # Teachers can see course grades for their courses
@@ -1143,7 +1143,7 @@ class ReportCardViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
         
-        if user.role in ['ADMIN', 'SECRETARY']:
+        if user.role in ['ADMIN', 'SECRETARY', 'DEAN']:
             return self.queryset
         elif user.role == 'TEACHER':
             # Teachers can see report cards for students in their courses

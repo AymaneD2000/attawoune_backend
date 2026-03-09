@@ -21,7 +21,7 @@ class DashboardView(APIView):
         user = request.user
         data = {}
 
-        if user.role in ['ADMIN', 'SECRETARY']:
+        if user.role in ['ADMIN', 'SECRETARY', 'ACCOUNTANT', 'DEAN']:
             data = self.get_admin_data()
         elif user.role == 'TEACHER':
             data = self.get_teacher_data(user)

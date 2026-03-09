@@ -36,14 +36,23 @@ class UserViewSet(viewsets.ModelViewSet):
         return UserSerializer
 
     def get_permissions(self):
-        if self.action in ['create', 'destroy']:
+        if self.action == 'destroy':
             return [permissions.IsAuthenticated(), permissions.IsAdminUser()]
+        elif self.action == 'create':
+            return [permissions.IsAuthenticated()] # We will check role in perform_create or it's fine if they can create. But wait, we should restrict creation. Let's add a custom permission inline or just check in create().
         return super().get_permissions()
+
+    def create(self, request, *args, **kwargs):
+        if request.user.role not in ['ADMIN', 'DEAN', 'SECRETARY']:
+            return Response({'error': 'Non autorisé à créer des utilisateurs'}, status=status.HTTP_403_FORBIDDEN)
+        return super().create(request, *args, **kwargs)
 
     def get_queryset(self):
         user = self.request.user
         if user.is_admin:
             return User.objects.all()
+        if user.role == 'DEAN':
+            return User.objects.exclude(role='ADMIN')
         return User.objects.filter(id=user.id)
 
     @action(detail=True, methods=['post'])

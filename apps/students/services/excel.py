@@ -198,9 +198,10 @@ class StudentExcelService:
                         gender_norm = 'M'
 
                     # 1. Handle User
-                    user = User.objects.create(
+                    user = User.objects.create_user(
                         email=email,
                         username=email,
+                        password='Attawoune123!',
                         first_name=first_name,
                         last_name=last_name,
                         role='STUDENT',

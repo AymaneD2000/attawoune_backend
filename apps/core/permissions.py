@@ -119,17 +119,31 @@ class IsAccountantOrAdmin(BasePermission):
         )
 
 
+class IsFinanceViewer(BasePermission):
+    """
+    Allow full access to accountants and admins, and read-only access to secretaries and deans.
+    """
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        if request.user.role in ['ACCOUNTANT', 'ADMIN']:
+            return True
+        if request.user.role in ['SECRETARY', 'DEAN'] and request.method in SAFE_METHODS:
+            return True
+        return False
+
+
 class IsSecretaryOrAdmin(BasePermission):
     """
-    Allow access to secretaries and admins.
+    Allow access to secretaries, deans, and admins.
     
-    Used for student management endpoints that both secretaries and admins should access.
+    Used for student management endpoints that these roles should access.
     """
     
     def has_permission(self, request, view):
         return (
             request.user.is_authenticated and 
-            request.user.role in ['SECRETARY', 'ADMIN']
+            request.user.role in ['SECRETARY', 'DEAN', 'ADMIN']
         )
 
 

@@ -107,7 +107,7 @@ class StudentViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(
                 enrollments__program__courses__teacher_assignments__teacher__user=user
             ).distinct()
-        elif user.role not in ['ADMIN', 'SECRETARY']:
+        elif user.role not in ['ADMIN', 'SECRETARY', 'ACCOUNTANT', 'DEAN']:
             # Others: No access
             return self.queryset.none()
             
@@ -492,7 +492,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
         
-        if user.role in ['ADMIN', 'SECRETARY']:
+        if user.role in ['ADMIN', 'SECRETARY', 'DEAN']:
             return self.queryset
         elif user.role == 'STUDENT':
             # Students can only see their own enrollments
@@ -579,7 +579,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
         
-        if user.role == 'ADMIN':
+        if user.role in ['ADMIN', 'DEAN', 'SECRETARY']:
             return self.queryset
         elif user.role == 'TEACHER':
             # Teachers can see attendance for their courses

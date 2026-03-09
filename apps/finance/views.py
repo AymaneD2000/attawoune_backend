@@ -19,7 +19,7 @@ from django.db.models import Sum, F, Q
 from django.utils import timezone
 import uuid
 
-from apps.core.permissions import IsAccountantOrAdmin
+from apps.core.permissions import IsAccountantOrAdmin, IsFinanceViewer
 from .models import TuitionPayment, TuitionFee, StudentBalance, Salary, Expense
 from .serializers import (
     TuitionPaymentListSerializer, TuitionPaymentDetailSerializer, TuitionPaymentCreateSerializer,
@@ -86,7 +86,7 @@ class TuitionPaymentViewSet(viewsets.ModelViewSet):
         
         return queryset
 
-    permission_classes = [IsAuthenticated, IsAccountantOrAdmin]
+    permission_classes = [IsAuthenticated, IsFinanceViewer]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['student', 'academic_year', 'payment_method', 'status']
     search_fields = ['reference', 'receipt_number', 'student__user__first_name', 'student__user__last_name', 'student__student_id']
@@ -312,7 +312,7 @@ class TuitionFeeViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(academic_year=current_year)
         return queryset
 
-    permission_classes = [IsAuthenticated, IsAccountantOrAdmin]
+    permission_classes = [IsAuthenticated, IsFinanceViewer]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['program', 'academic_year']
     search_fields = ['program__name', 'program__code']
@@ -378,7 +378,7 @@ class StudentBalanceViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(academic_year=current_year)
         return queryset
 
-    permission_classes = [IsAuthenticated, IsAccountantOrAdmin]
+    permission_classes = [IsAuthenticated, IsFinanceViewer]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['student', 'academic_year']
     search_fields = ['student__user__first_name', 'student__user__last_name', 'student__student_id']
@@ -630,7 +630,7 @@ class SalaryViewSet(viewsets.ModelViewSet):
             
         return queryset
 
-    permission_classes = [IsAuthenticated, IsAccountantOrAdmin]
+    permission_classes = [IsAuthenticated, IsFinanceViewer]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['employee', 'month', 'year', 'status']
     search_fields = ['employee__first_name', 'employee__last_name', 'employee__email']
@@ -843,7 +843,7 @@ class ExpenseViewSet(viewsets.ModelViewSet):
             
         return queryset
 
-    permission_classes = [IsAuthenticated, IsAccountantOrAdmin]
+    permission_classes = [IsAuthenticated, IsFinanceViewer]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['category', 'approved_by', 'created_by']
     search_fields = ['description', 'category']
@@ -958,7 +958,7 @@ class FinanceDashboardView(APIView):
     Permissions:
     - Accountant and Admin only
     """
-    permission_classes = [IsAuthenticated, IsAccountantOrAdmin]
+    permission_classes = [IsAuthenticated, IsFinanceViewer]
 
     def get(self, request):
         from apps.university.models import AcademicYear

@@ -96,7 +96,7 @@ class TeacherViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
         
-        if user.role in ['ADMIN', 'SECRETARY']:
+        if user.role in ['ADMIN', 'SECRETARY', 'DEAN']:
             return self.queryset
         elif user.role == 'TEACHER':
             # Teachers can see all teachers but only modify their own profile
@@ -277,7 +277,7 @@ class TeacherCourseViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
         
-        if user.role in ['ADMIN', 'SECRETARY']:
+        if user.role in ['ADMIN', 'SECRETARY', 'DEAN']:
             return self.queryset
         elif user.role == 'TEACHER':
             # Teachers can see only their own course assignments
@@ -362,7 +362,7 @@ class TeacherContractViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
         
-        if user.role in ['ADMIN', 'SECRETARY']:
+        if user.role in ['ADMIN', 'SECRETARY', 'DEAN']:
             return self.queryset
         elif user.role == 'TEACHER':
             # Teachers can only see their own contracts
