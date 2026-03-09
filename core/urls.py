@@ -35,6 +35,11 @@ api_v1_patterns = [
     path('finance/', include('apps.finance.urls')),
     path('scheduling/', include('apps.scheduling.urls')),
     path('audit/', include('apps.audit.urls')),
+    
+    # Auth
+    path('auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('auth/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
 ]
 
 urlpatterns = [
@@ -44,11 +49,6 @@ urlpatterns = [
     # Admin
     path("admin/", admin.site.urls),
 
-    # JWT Authentication
-    path('api/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('api/auth/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
-    
     # API v1 (versioned endpoints)
     path('api/v1/', include((api_v1_patterns, 'api_v1'), namespace='v1')),
 
