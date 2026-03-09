@@ -12,7 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Security settings
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-in-production')
 DEBUG = config('DEBUG', default=False, cast=bool)
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,.onrender.com,lk40s80skcocogs4kkogcgc4.62.171.157.196.sslip.io').split(',')
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,.onrender.com,lk40s80skcocogs4kkogcgc4.62.171.157.196.sslip.io,.attawoune.ml').split(',')
 
 # Application definition
 INSTALLED_APPS = [
