@@ -197,11 +197,15 @@ class StudentExcelService:
                     else:
                         gender_norm = 'M'
 
+                    # Generate a predictable password like "FirstLast@YYYY"
+                    birth_year = birth_date.year if getattr(birth_date, 'year', None) else date.today().year
+                    generated_password = f"{first_name}{last_name}@{birth_year}".replace(" ", "")
+
                     # 1. Handle User
                     user = User.objects.create_user(
                         email=email,
                         username=email,
-                        password='Attawoune123!',
+                        password=generated_password,
                         first_name=first_name,
                         last_name=last_name,
                         role='STUDENT',

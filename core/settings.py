@@ -142,7 +142,7 @@ CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=True, cast=boo
 CORS_ALLOWED_ORIGINS = [
     origin.rstrip('/') for origin in config(
         'CORS_ALLOWED_ORIGINS',
-        default='http://localhost:3000,http://127.0.0.1:3000,https://attawoune-frontend-w7de.vercel.app,http://lk40s80skcocogs4kkogcgc4.62.171.157.196.sslip.io'
+        default='http://localhost:3000,http://127.0.0.1:3000,https://attawoune-frontend-w7de.vercel.app,http://lk40s80skcocogs4kkogcgc4.62.171.157.196.sslip.io,https://app.attawoune.ml'
     ).split(',')
 ]
 CORS_ALLOW_CREDENTIALS = True
@@ -152,6 +152,7 @@ CSRF_TRUSTED_ORIGINS = [
     'https://attawoune-frontend-w7de.vercel.app',
     'https://attawoune-backend.onrender.com',
     'http://lk40s80skcocogs4kkogcgc4.62.171.157.196.sslip.io',
+    'https://app.attawoune.ml',
 ]
 
 # API Documentation
