@@ -52,16 +52,6 @@ urlpatterns = [
     # API v1 (versioned endpoints)
     path('api/v1/', include((api_v1_patterns, 'api_v1'), namespace='v1')),
 
-    # Backward-compatible API endpoints (without versioning)
-    path('api/accounts/', include('apps.accounts.urls')),
-    path('api/university/', include('apps.university.urls')),
-    path('api/students/', include('apps.students.urls')),
-    path('api/teachers/', include('apps.teachers.urls')),
-    path('api/academics/', include('apps.academics.urls')),
-    path('api/finance/', include('apps.finance.urls')),
-    path('api/scheduling/', include('apps.scheduling.urls')),
-    path('api/audit/', include('apps.audit.urls')),
-
     # API Documentation
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
