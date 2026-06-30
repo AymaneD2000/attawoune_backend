@@ -4,6 +4,7 @@ Django settings for core project - Université Attawoune Management System
 
 from datetime import timedelta
 from pathlib import Path
+from urllib.parse import urlparse
 
 from decouple import config
 
@@ -76,12 +77,26 @@ TEMPLATES = [
 WSGI_APPLICATION = "core.wsgi.application"
 
 # Database
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+DATABASE_URL = config("DATABASE_URL", default="")
+if DATABASE_URL:
+    parsed_db = urlparse(DATABASE_URL)
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": parsed_db.path.lstrip("/"),
+            "USER": parsed_db.username or "",
+            "PASSWORD": parsed_db.password or "",
+            "HOST": parsed_db.hostname or "",
+            "PORT": parsed_db.port or "5432",
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 # Custom User Model
 AUTH_USER_MODEL = "accounts.User"
@@ -154,12 +169,22 @@ CORS_ALLOW_CREDENTIALS = True
 
 # CSRF Trusted Origins
 CSRF_TRUSTED_ORIGINS = [
-    "https://attawoune-frontend-w7de.vercel.app",
-    "https://attawoune-backend.onrender.com",
-    "http://lk40s80skcocogs4kkogcgc4.62.171.157.196.sslip.io",
-    "https://app.universiter-attawoune.ml",
-    "https://api.universiter-attawoune.ml",
+    origin.rstrip("/")
+    for origin in config(
+        "CSRF_TRUSTED_ORIGINS",
+        default="https://attawoune-frontend-w7de.vercel.app,https://attawoune-backend.onrender.com,http://lk40s80skcocogs4kkogcgc4.62.171.157.196.sslip.io,https://app.universiter-attawoune.ml,https://api.universiter-attawoune.ml",
+    ).split(",")
+    if origin.strip()
 ]
+
+# Production security / reverse proxy settings (Coolify terminates HTTPS)
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=False, cast=bool)
+SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=False, cast=bool)
+CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=False, cast=bool)
+SECURE_HSTS_SECONDS = config("SECURE_HSTS_SECONDS", default=0, cast=int)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = config("SECURE_HSTS_INCLUDE_SUBDOMAINS", default=False, cast=bool)
+SECURE_HSTS_PRELOAD = config("SECURE_HSTS_PRELOAD", default=False, cast=bool)
 
 # API Documentation
 SPECTACULAR_SETTINGS = {
