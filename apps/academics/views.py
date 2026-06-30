@@ -17,7 +17,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from apps.core.permissions import IsAdminOrReadOnly, IsTeacherOrAdmin, IsSecretaryOrAdmin
 from .models import Course, Exam, Grade, CourseGrade, ReportCard
 from django.db import transaction
-from django.db.models import Sum, Avg, Max, Min, Q
+from django.db.models import Avg, Max, Min
 from django.http import HttpResponse
 from .utils import export_grades_template, export_current_grades
 import openpyxl
@@ -195,7 +195,7 @@ class CourseViewSet(viewsets.ModelViewSet):
                 'course_name': prereq.name,
                 'course_code': prereq.code,
                 'is_completed': is_completed,
-                'grade': course_grade.final_grade if course_grade else None,
+                'grade': course_grade.final_score if course_grade else None,
             })
         
         return Response({
@@ -747,9 +747,7 @@ class GradeViewSet(viewsets.ModelViewSet):
             avg_score=Avg('score'),
             max_score=Max('score'),
             min_score=Min('score'),
-            total_exams=Sum(Q(score__isnull=False)), # This is a bit weird, aggregate doesn't work like this for count
         )
-        # Fix total count
         stats['total_exams'] = grades.count()
         stats['absences'] = grades.filter(is_absent=True).count()
 
@@ -972,13 +970,15 @@ class CourseGradeViewSet(viewsets.ModelViewSet):
             "updated": updated_count
         })
 
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsTeacherOrAdmin])
+    def validate(self, request, pk=None):
         """
         Validate a course grade.
-        
+
         Sets is_validated=True, records validated_by and validated_at.
         """
         from django.utils import timezone
-        
+
         course_grade = self.get_object()
         
         # Check if already validated
