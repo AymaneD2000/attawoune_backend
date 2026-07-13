@@ -1,4 +1,0 @@
-# file: /Users/robotsmali/Documents/university_management_system/backend/apps/audit/signals.py
-# hypothesis_version: 6.151.6
-
-[255, ',', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR', 'academics', 'accounts', 'action', 'details', 'finance', 'ip_address', 'model_name', 'object_id', 'object_repr', 'scheduling', 'students', 'teachers', 'university', 'user_id']

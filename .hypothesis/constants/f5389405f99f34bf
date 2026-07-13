@@ -1,4 +1,0 @@
-# file: /Users/robotsmali/Documents/university_management_system/backend/apps/audit/views.py
-# hypothesis_version: 6.151.6
-
-['-timestamp', '__all__', 'action', 'model_name', 'object_repr', 'timestamp', 'user.email', 'user.first_name', 'user.get_full_name', 'user.last_name', 'user.username', 'user__first_name', 'user__last_name', 'user__username']

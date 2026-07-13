@@ -1,4 +1,0 @@
-# file: /Users/robotsmali/Documents/university_management_system/backend/apps/academics/services/grades.py
-# hypothesis_version: 6.151.6
-
-['0.00', '0.01', '20.00', 'ADMIN', 'TEACHER', 'course', 'exam', 'exam__course', 'is_published', 'is_validated', 'pk', 'published_at', 'semester', 'student', 'student_id', 'updated_at', 'validated_at', 'validated_by']

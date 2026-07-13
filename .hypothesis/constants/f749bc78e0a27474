@@ -1,4 +1,0 @@
-# file: /Users/robotsmali/Documents/university_management_system/backend/apps/core/exceptions.py
-# hypothesis_version: 6.151.6
-
-['API_ERROR', 'AUTH_FAILED', 'AUTH_REQUIRED', 'CONFLICT', 'METHOD_NOT_ALLOWED', 'NOT_FOUND', 'PERMISSION_DENIED', 'RATE_LIMITED', 'SERVER_ERROR', 'VALIDATION_ERROR', '__str__', 'available_in', 'code', 'detail', 'details', 'error', 'message', 'method_not_allowed', 'non_field_errors', 'not_authenticated', 'not_found', 'permission_denied', 'server_error', 'status_code', 'throttled', 'validation_error']

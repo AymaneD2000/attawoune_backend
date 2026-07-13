@@ -1,4 +1,0 @@
-# file: /Users/robotsmali/Documents/university_management_system/backend/apps/audit/models.py
-# hypothesis_version: 6.151.6
-
-[100, 255, '-timestamp', 'Action', 'Adresse IP', 'CREATE', 'Connexion', 'Création', 'DELETE', 'Date et heure', 'Déconnexion', 'Détails', 'ID Objet', "Journal d'audit", "Journaux d'audit", 'LOGIN', 'LOGOUT', 'Modification', 'Modèle', 'Représentation', 'Suppression', 'UPDATE', 'Utilisateur', 'audit_logs']

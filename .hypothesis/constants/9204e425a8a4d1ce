@@ -1,4 +1,0 @@
-# file: /Users/robotsmali/Documents/university_management_system/backend/apps/academics/utils.py
-# hypothesis_version: 6.151.6
-
-['Absent', 'Absent (O/N)', 'B', 'CCE5FF', 'Date', 'Instructions', 'Matricule', 'N', 'Nom', "Nom de l'étudiant", 'Non', 'Note', 'Note (Max: {})', 'Notes actuelles', 'Noté par', 'Oui', 'Remarques', 'center', 'graded_at', 'graded_by_name', 'is_absent', 'remarks', 'score', 'solid', 'student_matricule', 'student_name']
