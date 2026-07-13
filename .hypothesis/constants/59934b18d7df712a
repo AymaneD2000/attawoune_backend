@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/students/services/excel.py
+# hypothesis_version: 6.151.6
+
+[' - ', '%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y', '+221770000000', '+221780000000', '.', '2000-01-01', '2023-10-01', 'ACTIVE', 'Code Programme', 'Contact Urgence', 'Date Inscription', 'Date Naissance', "Date d'inscription", 'Date de naissance', 'Dupont', 'E-mail', 'ENROLLED', 'Email', 'F', 'FEMALE', 'FEMME', 'First Name', 'Gender', 'Genre', 'INFO', 'Jean', 'L1', 'Last Name', 'Level', 'M', 'Matricule', 'NFKD', 'Naissance', 'Niveau', 'Niveau Actuel', 'Nom', 'Nom Tuteur', 'Phone', 'Prenom', 'Program', 'Programme', 'Prénom', 'STUDENT', 'Sexe', 'Status', 'Statut', 'Telephone', 'Template Import', 'Tuteur', 'Tuteur Dupont', 'Téléphone', 'Téléphone Tuteur', 'Urgence', '[\\s]+', '[^\\w\\s-]', 'ascii', 'ignore', 'level', 'program', 'status', 'year', 'Étudiants']

@@ -80,16 +80,29 @@ WSGI_APPLICATION = "core.wsgi.application"
 DATABASE_URL = config("DATABASE_URL", default="")
 if DATABASE_URL:
     parsed_db = urlparse(DATABASE_URL)
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": parsed_db.path.lstrip("/"),
-            "USER": parsed_db.username or "",
-            "PASSWORD": parsed_db.password or "",
-            "HOST": parsed_db.hostname or "",
-            "PORT": parsed_db.port or "5432",
+    if parsed_db.scheme in {"sqlite", "sqlite3"}:
+        database_name = parsed_db.path
+        if database_name in {"", "/", "/:memory:"}:
+            database_name = ":memory:"
+        elif database_name.startswith("//"):
+            database_name = database_name[1:]
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.sqlite3",
+                "NAME": database_name,
+            }
         }
-    }
+    else:
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.postgresql",
+                "NAME": parsed_db.path.lstrip("/"),
+                "USER": parsed_db.username or "",
+                "PASSWORD": parsed_db.password or "",
+                "HOST": parsed_db.hostname or "",
+                "PORT": parsed_db.port or "5432",
+            }
+        }
 else:
     DATABASES = {
         "default": {

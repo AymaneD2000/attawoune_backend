@@ -6,6 +6,14 @@ from .models import Teacher, TeacherCourse, TeacherContract
 class TeacherListSerializer(serializers.ModelSerializer):
     """List serializer for Teacher with basic fields."""
     user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    user_full_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    user_email = serializers.EmailField(source='user.email', read_only=True)
+    user_phone = serializers.CharField(source='user.phone', read_only=True)
+    user_profile_picture = serializers.ImageField(
+        source='user.profile_picture', read_only=True
+    )
     department_name = serializers.CharField(
         source='department.name', read_only=True
     )
@@ -17,17 +25,30 @@ class TeacherListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Teacher
         fields = [
-            'id', 'user', 'employee_id', 'user_name', 'department', 'department_name',
+            'id', 'user', 'employee_id', 'user_name', 'user_full_name',
+            'first_name', 'last_name', 'user_email', 'user_phone',
+            'user_profile_picture', 'department', 'department_name',
             'rank', 'rank_display', 'contract_type', 'contract_type_display',
-            'hire_date', 'is_active'
+            'hire_date', 'specialization', 'office_location', 'is_active'
         ]
 
 
 class TeacherDetailSerializer(serializers.ModelSerializer):
     """Detail serializer for Teacher with all fields and computed properties."""
     user_name = serializers.CharField(source='user.get_full_name', read_only=True)
-    user_email = serializers.CharField(source='user.email', read_only=True)
+    user_full_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    user_email = serializers.EmailField(source='user.email', read_only=True)
     user_phone = serializers.CharField(source='user.phone', read_only=True)
+    user_address = serializers.CharField(source='user.address', read_only=True)
+    user_date_of_birth = serializers.DateField(
+        source='user.date_of_birth', read_only=True
+    )
+    user_gender = serializers.CharField(source='user.gender', read_only=True)
+    user_profile_picture = serializers.ImageField(
+        source='user.profile_picture', read_only=True
+    )
     department_name = serializers.CharField(
         source='department.name', read_only=True
     )
@@ -53,6 +74,73 @@ class TeacherDetailSerializer(serializers.ModelSerializer):
     
     def get_active_contracts_count(self, obj):
         return obj.contracts.filter(status='ACTIVE').count()
+
+
+class TeacherUpdateSerializer(serializers.ModelSerializer):
+    """Update a teacher profile and its linked user information together."""
+
+    first_name = serializers.CharField(
+        source='user.first_name', required=False
+    )
+    last_name = serializers.CharField(
+        source='user.last_name', required=False
+    )
+    user_email = serializers.EmailField(
+        source='user.email', required=False, allow_blank=True
+    )
+    user_phone = serializers.CharField(
+        source='user.phone', required=False, allow_blank=True
+    )
+    user_address = serializers.CharField(
+        source='user.address', required=False, allow_blank=True
+    )
+    user_date_of_birth = serializers.DateField(
+        source='user.date_of_birth', required=False, allow_null=True
+    )
+    user_gender = serializers.ChoiceField(
+        source='user.gender', choices=['M', 'F'], required=False
+    )
+    user_full_name = serializers.CharField(
+        source='user.get_full_name', read_only=True
+    )
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    user_profile_picture = serializers.ImageField(
+        source='user.profile_picture', read_only=True
+    )
+    department_name = serializers.CharField(
+        source='department.name', read_only=True
+    )
+    rank_display = serializers.CharField(source='get_rank_display', read_only=True)
+    contract_type_display = serializers.CharField(
+        source='get_contract_type_display', read_only=True
+    )
+
+    class Meta:
+        model = Teacher
+        fields = [
+            'id', 'user', 'employee_id', 'user_name', 'user_full_name',
+            'first_name', 'last_name', 'user_email', 'user_phone',
+            'user_address', 'user_date_of_birth', 'user_gender',
+            'user_profile_picture', 'department', 'department_name', 'rank',
+            'rank_display', 'contract_type', 'contract_type_display',
+            'hire_date', 'specialization', 'office_location', 'is_active'
+        ]
+        read_only_fields = [
+            'id', 'user', 'employee_id', 'user_name', 'user_full_name',
+            'user_profile_picture', 'department_name', 'rank_display',
+            'contract_type_display'
+        ]
+
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop('user', {})
+
+        if user_data:
+            user = instance.user
+            for field, value in user_data.items():
+                setattr(user, field, value)
+            user.save()
+
+        return super().update(instance, validated_data)
 
 
 class TeacherCreateSerializer(serializers.ModelSerializer):

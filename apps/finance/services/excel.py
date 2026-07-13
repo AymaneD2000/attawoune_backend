@@ -5,7 +5,8 @@ from openpyxl import Workbook, load_workbook
 from django.utils import timezone
 from django.db import transaction
 from django.core.exceptions import ValidationError
-from ..models import TuitionPayment, StudentBalance, Salary, Expense
+from ..models import TuitionPayment, Salary, Expense
+from .balances import reconcile_student_balance
 from apps.students.models import Student
 from apps.university.models import Level, AcademicYear
 from django.contrib.auth import get_user_model
@@ -197,14 +198,7 @@ class PaymentExcelService:
                         received_by=user,
                     )
 
-                    # Update student balance
-                    balance, _ = StudentBalance.objects.get_or_create(
-                        student=student,
-                        academic_year=academic_year,
-                        defaults={'total_due': 0, 'total_paid': 0}
-                    )
-                    balance.total_paid += amount
-                    balance.save()
+                    reconcile_student_balance(student, academic_year)
 
                     success_count += 1
 
@@ -481,4 +475,3 @@ class ExpenseExcelService:
                 errors.append(f"Ligne {row_idx}: {str(e)}")
 
         return success_count, errors
-

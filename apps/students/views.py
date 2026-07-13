@@ -17,7 +17,7 @@ from .models import Student, Enrollment, Attendance
 from .serializers import (
     StudentListSerializer, StudentDetailSerializer, StudentCreateSerializer,
     EnrollmentListSerializer, EnrollmentDetailSerializer, EnrollmentCreateSerializer,
-    AttendanceDetailSerializer, AttendanceCreateSerializer,
+    AttendanceListSerializer, AttendanceDetailSerializer, AttendanceCreateSerializer,
     AttendanceBulkCreateSerializer
 )
 from .services.excel import StudentExcelService
@@ -82,7 +82,7 @@ class StudentViewSet(viewsets.ModelViewSet):
         - Read operations: All authenticated users (with role-based filtering)
         - Write operations: Admin and Secretary only
         """
-        if self.action in ['list', 'retrieve']:
+        if self.action in ['list', 'retrieve', 'enrollments', 'grades', 'attendance_stats']:
             return [IsAuthenticated()]
         return [IsAuthenticated(), IsSecretaryOrAdmin()]
     
@@ -386,7 +386,7 @@ class StudentViewSet(viewsets.ModelViewSet):
         """Export filtered students to Excel."""
         queryset = self.filter_queryset(self.get_queryset())
         excel_file = StudentExcelService.export_students(queryset)
-        
+
         response = HttpResponse(
             excel_file,
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -398,7 +398,7 @@ class StudentViewSet(viewsets.ModelViewSet):
     def download_template(self, request):
         """Download import template."""
         excel_file = StudentExcelService.download_template()
-        
+
         response = HttpResponse(
             excel_file,
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -415,9 +415,9 @@ class StudentViewSet(viewsets.ModelViewSet):
                 {"error": "Aucun fichier fourni"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-            
+
         success_count, errors = StudentExcelService.import_students(file_obj)
-        
+
         return Response({
             "success_count": success_count,
             "errors": errors
@@ -594,7 +594,37 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """Automatically set recorded_by to current user."""
+        self._validate_attendance_scope(
+            serializer.validated_data['student'],
+            serializer.validated_data['course_session'],
+        )
         serializer.save(recorded_by=self.request.user)
+
+    def perform_update(self, serializer):
+        self._validate_attendance_scope(
+            serializer.validated_data.get('student', serializer.instance.student),
+            serializer.validated_data.get('course_session', serializer.instance.course_session),
+        )
+        serializer.save(recorded_by=self.request.user)
+
+    def _validate_attendance_scope(self, student, course_session):
+        from rest_framework.exceptions import PermissionDenied, ValidationError
+
+        schedule = course_session.schedule
+        if (
+            self.request.user.role == 'TEACHER'
+            and schedule.teacher.user_id != self.request.user.id
+        ):
+            raise PermissionDenied("Vous n'êtes pas assigné à cette séance.")
+
+        if not student.enrollments.filter(
+            academic_year=schedule.semester.academic_year,
+            program=schedule.course.program,
+            is_active=True,
+        ).exists():
+            raise ValidationError({
+                'student': "L'étudiant n'est pas activement inscrit à ce cours."
+            })
     
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated, IsTeacherOrAdmin])
     def record_bulk(self, request):

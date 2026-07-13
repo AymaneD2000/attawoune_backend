@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/students/services/id_card.py
+# hypothesis_version: 6.151.6
+
+[100, 140, 150, 156, 163, 175, 179, 180, 200, 216, 229, 231, 234, 235, 255, 280, 350, 380, 638, 1011, "CARTE D'ÉTUDIANT", 'DejaVuSans.ttf', 'Filière:', 'Matricule:', 'NO PHOTO', 'Niveau:', 'Nom & Prénom:', 'PNG', 'RGB', 'UNIVERSITÉ ATTAWOUNE', 'mm']

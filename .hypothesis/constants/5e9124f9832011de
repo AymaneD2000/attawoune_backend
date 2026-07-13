@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/finance/migrations/0003_alter_tuitionfee_unique_together_tuitionfee_level_and_more.py
+# hypothesis_version: 6.151.6
+
+['0003_programfee', 'Niveau', 'academic_year', 'finance', 'level', 'program', 'tuition_fees', 'tuitionfee', 'university', 'university.level']

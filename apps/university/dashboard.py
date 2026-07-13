@@ -2,9 +2,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
-from django.db.models import Count, Q
+from django.db.models import Avg, Sum
 
-from apps.students.models import Student
+from apps.students.models import Enrollment, Student
 from apps.teachers.models import Teacher
 from apps.university.models import Program, Department, Semester
 from apps.finance.models import TuitionPayment
@@ -82,24 +82,24 @@ class DashboardView(APIView):
             return {'error': 'Profil enseignant non trouvé'}
 
         # Courses taught
-        courses = Course.objects.filter(teachers=teacher)
+        courses = Course.objects.filter(
+            teacher_assignments__teacher=teacher,
+            is_active=True,
+        ).distinct()
         courses_count = courses.count()
 
-        # Total students (approximate via enrollments or simple count if linked)
-        # Assuming simple relation for now or just skip
+        students_count = Student.objects.filter(
+            status='ACTIVE',
+            enrollments__is_active=True,
+            enrollments__program__courses__in=courses,
+        ).distinct().count()
         
         # Simple Schedule for Today
         today_index = timezone.now().weekday() # 0=Monday
-        # Map python weekday to model choice (MONDAY='MON', etc)
-        # Assuming model uses 0, 1, 2 directly or string keys?
-        # Let's check Schedule model. 
-        # For safety I will try to map common days or use a helper
-        DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
-        current_day = DAYS[today_index] if today_index < 7 else 'MON'
-
         today_schedule = Schedule.objects.filter(
             teacher=teacher,
-            day=current_day
+            time_slot__day=today_index,
+            is_active=True,
         ).select_related('course', 'classroom', 'time_slot').order_by('time_slot__start_time')
 
         schedule_data = [
@@ -116,7 +116,7 @@ class DashboardView(APIView):
         return {
             'role': 'TEACHER',
             'courses_count': courses_count,
-            'students_count': 0, # Placeholder
+            'students_count': students_count,
             'schedule': schedule_data
         }
 
@@ -128,43 +128,54 @@ class DashboardView(APIView):
             
         current_semester = Semester.objects.filter(is_current=True).first()
 
-        # Stats
-        credits_validated = 0 # Placeholder logic
-        # If we have CourseGrade with is_validated=True
-        validated_grades = CourseGrade.objects.filter(student=student, is_validated=True)
-        for vg in validated_grades:
-            credits_validated += vg.course.credits
-            
-        total_credits = 60 # Assumption for year
-        
-        # Enrolled Courses (via CourseGrade for current semester as proxy for enrollment)
-        # Or if we have an enrollment model. Using CourseGrade as enrollment for now.
-        enrolled_count = CourseGrade.objects.filter(student=student, semester=current_semester).count()
+        current_enrollment = None
+        if current_semester:
+            current_enrollment = Enrollment.objects.filter(
+                student=student,
+                academic_year=current_semester.academic_year,
+                is_active=True,
+            ).select_related('program', 'level').first()
+
+        student_courses = Course.objects.none()
+        if current_semester and current_enrollment:
+            student_courses = Course.objects.filter(
+                program=current_enrollment.program,
+                level=current_enrollment.level,
+                semester_type=current_semester.semester_type,
+                is_active=True,
+            )
+
+        validated_grades = CourseGrade.objects.filter(
+            student=student,
+            semester=current_semester,
+            is_validated=True,
+        ) if current_semester else CourseGrade.objects.none()
+        credits_validated = validated_grades.aggregate(total=Sum('course__credits'))['total'] or 0
+        total_credits = student_courses.aggregate(total=Sum('credits'))['total'] or 0
+        enrolled_count = student_courses.count()
         
         # Recent Grades
-        recent_grades_qs = Grade.objects.filter(student=student).select_related('exam', 'exam__course').order_by('-date_graded')[:5]
+        recent_grades_qs = Grade.objects.filter(student=student).select_related(
+            'exam', 'exam__course'
+        ).order_by('-graded_at')[:5]
         recent_grades = [
             {
                 'course': g.exam.course.name,
                 'type': g.exam.get_exam_type_display(),
                 'score': g.score,
-                'date': g.date_graded
+                'date': g.graded_at
             }
             for g in recent_grades_qs
         ]
         
         # Schedule
         today_index = timezone.now().weekday()
-        DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
-        current_day = DAYS[today_index] if today_index < 7 else 'MON'
-        
-        # Find schedule for courses the student is in
-        # Assuming CourseGrade implies enrollment in Course
-        student_courses = CourseGrade.objects.filter(student=student, semester=current_semester).values_list('course', flat=True)
         
         today_schedule = Schedule.objects.filter(
-            course__id__in=student_courses,
-            day=current_day
+            course__in=student_courses,
+            semester=current_semester,
+            time_slot__day=today_index,
+            is_active=True,
         ).select_related('course', 'classroom', 'time_slot').order_by('time_slot__start_time')
 
         schedule_data = [
@@ -180,7 +191,7 @@ class DashboardView(APIView):
 
         return {
             'role': 'STUDENT',
-            'average': "N/A", # Complex calculation skipped for dashboard summary for now
+            'average': validated_grades.aggregate(value=Avg('final_score'))['value'],
             'courses_count': enrolled_count,
             'credits_validated': credits_validated,
             'credits_total': total_credits,

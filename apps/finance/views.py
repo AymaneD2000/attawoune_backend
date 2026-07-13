@@ -15,6 +15,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db import transaction
 from django.db.models import Sum, F, Q
 from django.utils import timezone
 import uuid
@@ -33,6 +34,7 @@ from .serializers import (
 )
 from apps.university.models import AcademicYear
 from .services.excel import PaymentExcelService, SalaryExcelService, ExpenseExcelService
+from .services.balances import reconcile_balance_pairs, reconcile_student_balance
 from django.http import HttpResponse
 
 
@@ -109,6 +111,7 @@ class TuitionPaymentViewSet(viewsets.ModelViewSet):
         unique_id = uuid.uuid4().hex[:6].upper()
         return f"PAY-{timestamp}-{unique_id}"
     
+    @transaction.atomic
     def perform_create(self, serializer):
         """
         Set received_by to current user on creation.
@@ -152,11 +155,25 @@ class TuitionPaymentViewSet(viewsets.ModelViewSet):
             payment_date=payment_date,
             status='COMPLETED'  # Auto-complete manual payments
         )
-        
-        # Update student balance
-        self._update_balance(payment)
+
+        reconcile_student_balance(payment.student, payment.academic_year)
+
+    @transaction.atomic
+    def perform_update(self, serializer):
+        previous = TuitionPayment.objects.select_for_update().get(pk=serializer.instance.pk)
+        old_pair = (previous.student, previous.academic_year)
+        payment = serializer.save()
+        reconcile_balance_pairs(old_pair, (payment.student, payment.academic_year))
+
+    @transaction.atomic
+    def perform_destroy(self, instance):
+        payment = TuitionPayment.objects.select_for_update().get(pk=instance.pk)
+        pair = (payment.student, payment.academic_year)
+        payment.delete()
+        reconcile_student_balance(*pair)
 
     @action(detail=True, methods=['post'])
+    @transaction.atomic
     def approve(self, request, pk=None):
         """Approve a pending payment."""
         payment = self.get_object()
@@ -171,23 +188,8 @@ class TuitionPaymentViewSet(viewsets.ModelViewSet):
             payment.payment_date = timezone.now().date()
         payment.save()
         
-        self._update_balance(payment)
+        reconcile_student_balance(payment.student, payment.academic_year)
         return Response({"status": "approved", "message": "Paiement validé avec succès"})
-    
-    def _update_balance(self, payment):
-        """Update student balance after payment."""
-        balance, created = StudentBalance.objects.get_or_create(
-            student=payment.student,
-            academic_year=payment.academic_year,
-            defaults={
-                'total_due': 0,
-                'total_paid': 0
-            }
-        )
-        
-        if payment.status == 'COMPLETED':
-            balance.total_paid = (balance.total_paid or 0) + payment.amount
-            balance.save()
     
     @action(detail=False, methods=['get'])
     def by_student(self, request):
@@ -431,7 +433,7 @@ class StudentBalanceViewSet(viewsets.ModelViewSet):
             # Add custom field to paginated response
             response.data['total_outstanding'] = total_outstanding
             return response
-            
+
         serializer = StudentBalanceListSerializer(queryset, many=True)
         return Response({
             'count': queryset.count(),
@@ -448,44 +450,8 @@ class StudentBalanceViewSet(viewsets.ModelViewSet):
         """
         balance = self.get_object()
         
-        # Calculate total paid from completed payments
-        total_paid = TuitionPayment.objects.filter(
-            student=balance.student,
-            academic_year=balance.academic_year,
-            status='COMPLETED'
-        ).aggregate(total=Sum('amount'))['total'] or 0
-        
-        # Get tuition fee (prioritize level-specific)
-        from apps.students.models import Enrollment
-        enrollment = Enrollment.objects.filter(
-            student=balance.student, 
-            academic_year=balance.academic_year,
-            is_active=True
-        ).first()
-        level = enrollment.level if enrollment else balance.student.current_level
-
-        tuition_fee = TuitionFee.objects.filter(
-            program=balance.student.program,
-            academic_year=balance.academic_year,
-            level=level
-        ).first()
-
-        if not tuition_fee:
-             # Try generic fee for the program/year
-             tuition_fee = TuitionFee.objects.filter(
-                program=balance.student.program,
-                academic_year=balance.academic_year,
-                level__isnull=True
-            ).first()
-        
-        if tuition_fee:
-            balance.total_due = tuition_fee.amount
-        else:
-            # Fallback to program default fee
-            balance.total_due = balance.student.program.tuition_fee
-        
-        balance.total_paid = total_paid
-        balance.save()
+        balance = reconcile_student_balance(balance.student, balance.academic_year)
+        serializer = StudentBalanceDetailSerializer(balance)
         
         return Response({
             "message": "Solde recalculé avec succès",
@@ -1007,4 +973,3 @@ class FinanceDashboardView(APIView):
             'outstanding_balances': max(outstanding, 0),
             'net_balance': total_tuition - total_salaries - total_expenses
         })
-

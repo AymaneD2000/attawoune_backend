@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/university/migrations/0003_programfee.py
+# hypothesis_version: 6.151.6
+
+['Année académique', 'Frais de programme', 'Frais de programmes', 'ID', 'Montant', 'Niveau', 'ProgramFee', 'Programme', 'academic_year', 'amount', 'fees', 'id', 'level', 'program', 'program_fees', 'unique_together', 'university', 'university.level', 'university.program', 'verbose_name', 'verbose_name_plural']

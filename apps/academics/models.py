@@ -227,6 +227,8 @@ class CourseGrade(models.Model):
         verbose_name="Validé par"
     )
     validated_at = models.DateTimeField(null=True, blank=True)
+    is_published = models.BooleanField(default=False, verbose_name="Publié")
+    published_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -301,7 +303,8 @@ class ReportCard(models.Model):
         """Calculer la moyenne pondérée."""
         course_grades = CourseGrade.objects.filter(
             student=self.student,
-            semester=self.semester
+            semester=self.semester,
+            is_validated=True,
         ).select_related('course')
 
         total_weighted_score = Decimal('0.00')
@@ -318,4 +321,11 @@ class ReportCard(models.Model):
             self.credits_earned = sum(
                 cg.course.credits for cg in course_grades if cg.final_score >= 10
             )
+        else:
+            self.gpa = Decimal('0.00')
+            self.total_credits = 0
+            self.credits_earned = 0
+        # Recalculation changes a published artifact, so it must be reviewed again.
+        self.is_published = False
+        self.published_at = None
         self.save()

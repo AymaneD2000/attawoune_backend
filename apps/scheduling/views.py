@@ -99,7 +99,7 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         - Read operations: All authenticated users
         - Write operations: Admin and Secretary only
         """
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'check_conflicts']:
             return [IsAuthenticated(), IsSecretaryOrAdmin()]
         return [IsAuthenticated()]
 
@@ -368,6 +368,17 @@ class CourseSessionViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated(), IsTeacherOrAdmin()]
         return [IsAuthenticated()]
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        user = self.request.user
+        if user.role == 'TEACHER':
+            return queryset.filter(schedule__teacher__user=user)
+        if user.role in ['ADMIN', 'DEAN', 'SECRETARY']:
+            return queryset
+        if user.role == 'STUDENT':
+            return queryset.filter(schedule__course__program__students__user=user)
+        return queryset.none()
+
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsTeacherOrAdmin])
     def cancel(self, request, pk=None):
         """
@@ -425,7 +436,7 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['list', 'retrieve', 'active']:
             return [AllowAny()]
-        return [IsAuthenticated()]
+        return [IsAuthenticated(), IsSecretaryOrAdmin()]
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -508,4 +519,3 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
             'count': queryset.count(),
             'results': serializer.data
         })
-

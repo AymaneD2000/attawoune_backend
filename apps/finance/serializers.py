@@ -84,11 +84,12 @@ class TuitionPaymentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = TuitionPayment
         fields = [
-            'student', 'academic_year', 'level', 'semester', 'amount',
+            'id', 'student', 'academic_year', 'level', 'semester', 'amount',
             'payment_method', 'status', 'reference', 'description',
             'receipt_number', 'payment_date', 'received_by'
         ]
         extra_kwargs = {
+            'id': {'read_only': True},
             'academic_year': {'required': False},
             'level': {'required': False},
             'semester': {'required': False},
@@ -225,11 +226,11 @@ class StudentBalanceListSerializer(serializers.ModelSerializer):
         max_digits=12, decimal_places=2, read_only=True
     )
     is_paid = serializers.BooleanField(read_only=True)
-    
+
     student_level = serializers.CharField(
         source='student.current_level.get_name_display', read_only=True
     )
-    
+
     class Meta:
         model = StudentBalance
         fields = [

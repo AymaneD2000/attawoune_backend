@@ -5,9 +5,10 @@ from rest_framework.decorators import action
 from django.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
 from .serializers import (
-    UserSerializer, UserCreateSerializer, UserUpdateSerializer,
+    CurrentUserProfileSerializer, UserSerializer, UserCreateSerializer, UserUpdateSerializer,
     PasswordChangeSerializer, RegisterSerializer
 )
+from apps.core.permissions import IsAdmin
 
 User = get_user_model()
 
@@ -17,6 +18,14 @@ class IsAdminOrSelf(permissions.BasePermission):
 
     def has_object_permission(self, request, view, obj):
         return request.user.is_admin or obj == request.user
+
+
+class CanCreateUsers(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return (
+            request.user.is_authenticated
+            and request.user.role in {User.Role.ADMIN, User.Role.DEAN, User.Role.SECRETARY}
+        )
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -37,15 +46,10 @@ class UserViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action == 'destroy':
-            return [permissions.IsAuthenticated(), permissions.IsAdminUser()]
-        elif self.action == 'create':
-            return [permissions.IsAuthenticated()] # We will check role in perform_create or it's fine if they can create. But wait, we should restrict creation. Let's add a custom permission inline or just check in create().
+            return [IsAdmin()]
+        if self.action == 'create':
+            return [CanCreateUsers()]
         return super().get_permissions()
-
-    def create(self, request, *args, **kwargs):
-        if request.user.role not in ['ADMIN', 'DEAN', 'SECRETARY']:
-            return Response({'error': 'Non autorisé à créer des utilisateurs'}, status=status.HTTP_403_FORBIDDEN)
-        return super().create(request, *args, **kwargs)
 
     def get_queryset(self):
         user = self.request.user
@@ -79,8 +83,8 @@ class UserViewSet(viewsets.ModelViewSet):
         """Get users filtered by role."""
         role = request.query_params.get('role', None)
         if role:
-            users = User.objects.filter(role=role.upper())
-            serializer = UserSerializer(users, many=True)
+            users = self.get_queryset().filter(role=role.upper())
+            serializer = UserSerializer(users, many=True, context={'request': request})
             return Response(serializer.data)
         return Response(
             {"error": "Role parameter required"},
@@ -97,10 +101,11 @@ class CurrentUserView(APIView):
         return Response(serializer.data)
 
     def patch(self, request):
-        serializer = UserUpdateSerializer(
+        serializer = CurrentUserProfileSerializer(
             request.user,
             data=request.data,
-            partial=True
+            partial=True,
+            context={'request': request},
         )
         if serializer.is_valid():
             serializer.save()

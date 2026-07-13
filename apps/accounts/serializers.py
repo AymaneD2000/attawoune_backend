@@ -52,7 +52,22 @@ class UserCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 "password": "Les mots de passe ne correspondent pas."
             })
-        return attrs
+
+        request = self.context.get('request')
+        requested_role = attrs.get('role', User.Role.STUDENT)
+        requester_role = getattr(getattr(request, 'user', None), 'role', None)
+
+        if requester_role == User.Role.ADMIN:
+            return attrs
+        if (
+            requester_role in {User.Role.DEAN, User.Role.SECRETARY}
+            and requested_role in {User.Role.STUDENT, User.Role.TEACHER}
+        ):
+            return attrs
+
+        raise serializers.ValidationError({
+            'role': "Vous n'êtes pas autorisé à attribuer ce rôle."
+        })
 
     def create(self, validated_data):
         validated_data.pop('password_confirm')
@@ -90,11 +105,11 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         validated_data.pop('password_confirm', None)
 
         request = self.context.get('request')
-        if request and not request.user.is_admin:
+        if not request or not request.user.is_admin:
             # Ensure non-admins cannot change role or is_active
             validated_data.pop('role', None)
             validated_data.pop('is_active', None)
-            
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
@@ -103,6 +118,17 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+
+
+class CurrentUserProfileSerializer(serializers.ModelSerializer):
+    """Fields users are allowed to change on their own profile."""
+
+    class Meta:
+        model = User
+        fields = [
+            'first_name', 'last_name', 'email', 'phone', 'address',
+            'profile_picture', 'date_of_birth', 'gender',
+        ]
 
 
 

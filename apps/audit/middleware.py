@@ -1,9 +1,9 @@
-import threading
+from contextvars import ContextVar
 
-_thread_locals = threading.local()
+_current_request = ContextVar("audit_current_request", default=None)
 
 def get_current_request():
-    return getattr(_thread_locals, 'request', None)
+    return _current_request.get()
 
 def get_current_user():
     request = get_current_request()
@@ -16,6 +16,8 @@ class AuditMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        _thread_locals.request = request
-        response = self.get_response(request)
-        return response
+        token = _current_request.set(request)
+        try:
+            return self.get_response(request)
+        finally:
+            _current_request.reset(token)

@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/audit/migrations/0001_initial.py
+# hypothesis_version: 6.151.6
+
+[100, 255, '-timestamp', 'Action', 'Adresse IP', 'AuditLog', 'CREATE', 'Connexion', 'Création', 'DELETE', 'Date et heure', 'Déconnexion', 'Détails', 'ID', 'ID Objet', "Journal d'audit", "Journaux d'audit", 'LOGIN', 'LOGOUT', 'Modification', 'Modèle', 'Représentation', 'Suppression', 'UPDATE', 'Utilisateur', 'action', 'audit_logs', 'details', 'id', 'ip_address', 'model_name', 'object_id', 'object_repr', 'ordering', 'timestamp', 'user', 'verbose_name', 'verbose_name_plural']

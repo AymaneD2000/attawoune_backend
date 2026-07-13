@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/accounts/serializers.py
+# hypothesis_version: 6.151.6
+
+['address', 'created_at', 'date_of_birth', 'email', 'first_name', 'full_name', 'gender', 'id', 'is_active', 'last_name', 'new_password', 'new_password_confirm', 'password', 'password_confirm', 'phone', 'profile_picture', 'request', 'role', 'role_display', 'updated_at', 'user', 'username']

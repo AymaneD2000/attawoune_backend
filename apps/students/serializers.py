@@ -17,7 +17,7 @@ class StudentListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
         fields = [
-            'id', 'user', 'student_id', 'user_name', 'first_name', 'last_name', 'program_name', 
+            'id', 'user', 'student_id', 'user_name', 'first_name', 'last_name', 'program_name',
             'current_level', 'level_display', 'status', 'status_display', 'enrollment_date',
             'photo'
         ]
@@ -250,6 +250,7 @@ class AttendanceCreateSerializer(serializers.ModelSerializer):
         fields = [
             'student', 'course_session', 'status', 'remarks', 'recorded_by'
         ]
+        read_only_fields = ['recorded_by']
     
     def validate(self, attrs):
         """Validate attendance constraints."""

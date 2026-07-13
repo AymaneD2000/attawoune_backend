@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/students/migrations/0002_studentpromotion.py
+# hypothesis_version: 6.151.6
+
+['-academic_year', '0001_initial', 'Admis(e)', 'Admis(e) avec dettes', 'Année académique', 'CONDITIONAL', 'Date de décision', 'Décision', 'Délibération', 'Délibérations', 'Exclu(e)/Echec', 'FAILED', 'ID', 'Moyenne annuelle', 'Niveau précédent', 'Niveau suivant', 'PROMOTED', 'Programme', 'REPEATED', 'Redoublant(e)', 'Remarques', 'StudentPromotion', 'academic_year', 'annual_gpa', 'decision', 'decision_date', 'id', 'level_from', 'level_to', 'ordering', 'program', 'promotions', 'promotions_from', 'promotions_to', 'remarks', 'student', 'students', 'students.student', 'unique_together', 'university', 'university.level', 'university.program', 'verbose_name', 'verbose_name_plural', 'Étudiant']

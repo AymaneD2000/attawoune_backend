@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/finance/services/balances.py
+# hypothesis_version: 6.151.6
+
+['0.00', 'amount', 'level', 'pk', 'total', 'total_due', 'total_paid', 'tuition_fee', 'updated_at']

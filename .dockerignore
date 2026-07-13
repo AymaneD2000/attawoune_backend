@@ -1,6 +1,11 @@
 .git
 .gitignore
 .env
+db.sqlite3
+backups
+.env.backup
+run_backup.sh
+*.tar.gz.enc
 venv
 __pycache__
 *.pyc
