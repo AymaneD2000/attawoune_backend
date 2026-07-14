@@ -16,8 +16,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
-from django.db.models import Sum, F, Q
+from django.db.models import Count, Sum, F, Q
+from django.db.models.functions import TruncMonth
 from django.utils import timezone
+from datetime import date
 import uuid
 
 from apps.core.permissions import IsAccountantOrAdmin, IsFinanceViewer
@@ -964,6 +966,118 @@ class FinanceDashboardView(APIView):
             total=Sum(F('total_due') - F('total_paid'))
         )['total'] or 0
 
+        completed_payments = TuitionPayment.objects.filter(
+            academic_year=current_year,
+            status='COMPLETED',
+        )
+        paid_salaries = Salary.objects.filter(
+            status='PAID',
+            payment_date__range=(current_year.start_date, current_year.end_date),
+        )
+        year_expenses = Expense.objects.filter(
+            date__range=(current_year.start_date, current_year.end_date),
+        )
+
+        def month_key(value):
+            return value.strftime('%Y-%m') if value else ''
+
+        monthly_revenue = {
+            month_key(row['period_month']): row['total'] or 0
+            for row in completed_payments.annotate(
+                period_month=TruncMonth('payment_date')
+            ).values('period_month').annotate(total=Sum('amount')).order_by('period_month')
+        }
+        monthly_salaries = {
+            month_key(row['period_month']): row['total'] or 0
+            for row in paid_salaries.annotate(
+                period_month=TruncMonth('payment_date')
+            ).values('period_month').annotate(total=Sum('net_salary')).order_by('period_month')
+        }
+        monthly_expenses = {
+            month_key(row['period_month']): row['total'] or 0
+            for row in year_expenses.annotate(
+                period_month=TruncMonth('date')
+            ).values('period_month').annotate(total=Sum('amount')).order_by('period_month')
+        }
+
+        monthly_cash_flow = []
+        cursor = date(current_year.start_date.year, current_year.start_date.month, 1)
+        end_month = date(current_year.end_date.year, current_year.end_date.month, 1)
+        while cursor <= end_month:
+            key = cursor.strftime('%Y-%m')
+            revenue = monthly_revenue.get(key, 0)
+            salaries = monthly_salaries.get(key, 0)
+            expenses = monthly_expenses.get(key, 0)
+            monthly_cash_flow.append({
+                'month': key,
+                'revenue': revenue,
+                'salaries': salaries,
+                'expenses': expenses,
+                'net': revenue - salaries - expenses,
+            })
+            cursor = date(
+                cursor.year + (1 if cursor.month == 12 else 0),
+                1 if cursor.month == 12 else cursor.month + 1,
+                1,
+            )
+
+        expense_category_rows = list(
+            year_expenses.values('category')
+            .annotate(amount=Sum('amount'), count=Count('id'))
+            .order_by('-amount')
+        )
+        category_labels = dict(Expense.ExpenseCategory.choices)
+        expense_categories = [
+            {
+                'category': row['category'],
+                'label': category_labels.get(row['category'], row['category']),
+                'amount': row['amount'] or 0,
+                'count': row['count'],
+                'percentage': round(float(row['amount'] or 0) / float(total_expenses) * 100, 1)
+                if total_expenses else 0,
+            }
+            for row in expense_category_rows
+        ]
+
+        payment_method_rows = list(
+            completed_payments.values('payment_method')
+            .annotate(amount=Sum('amount'), count=Count('id'))
+            .order_by('-amount')
+        )
+        method_labels = dict(TuitionPayment.PaymentMethod.choices)
+        payment_methods = [
+            {
+                'method': row['payment_method'],
+                'label': method_labels.get(row['payment_method'], row['payment_method']),
+                'amount': row['amount'] or 0,
+                'count': row['count'],
+                'percentage': round(float(row['amount'] or 0) / float(total_tuition) * 100, 1)
+                if total_tuition else 0,
+            }
+            for row in payment_method_rows
+        ]
+
+        payment_status_labels = dict(TuitionPayment.PaymentStatus.choices)
+        payment_statuses = [
+            {
+                'status': row['status'],
+                'label': payment_status_labels.get(row['status'], row['status']),
+                'amount': row['amount'] or 0,
+                'count': row['count'],
+            }
+            for row in TuitionPayment.objects.filter(
+                academic_year=current_year
+            ).values('status').annotate(
+                amount=Sum('amount'), count=Count('id')
+            ).order_by('-count')
+        ]
+
+        expected_revenue = total_tuition + max(outstanding, 0)
+        collection_rate = (
+            round(float(total_tuition) / float(expected_revenue) * 100, 1)
+            if expected_revenue else 0
+        )
+
         return Response({
             'current_year': current_year.name,
             'total_tuition_collected': total_tuition,
@@ -971,5 +1085,11 @@ class FinanceDashboardView(APIView):
             'total_expenses': total_expenses,
             'pending_payments_count': pending_payments,
             'outstanding_balances': max(outstanding, 0),
-            'net_balance': total_tuition - total_salaries - total_expenses
+            'net_balance': total_tuition - total_salaries - total_expenses,
+            'expected_revenue': expected_revenue,
+            'collection_rate': collection_rate,
+            'monthly_cash_flow': monthly_cash_flow,
+            'expense_categories': expense_categories,
+            'payment_methods': payment_methods,
+            'payment_statuses': payment_statuses,
         })

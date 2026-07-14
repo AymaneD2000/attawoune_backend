@@ -1,4 +1,0 @@
-# file: /Users/robotsmali/Documents/university_management_system/backend/apps/university/migrations/0002_alter_program_options_remove_program_level_and_more.py
-# hypothesis_version: 6.151.6
-
-['0001_initial', 'Niveaux', 'Programme', 'Programmes', 'department', 'level', 'levels', 'name', 'ordering', 'program', 'programs', 'university', 'university.level', 'verbose_name', 'verbose_name_plural']

@@ -1,4 +1,0 @@
-# file: /Users/robotsmali/Documents/university_management_system/backend/apps/accounts/views.py
-# hypothesis_version: 6.151.6
-
-['ADMIN', 'DEAN', 'create', 'created_at', 'destroy', 'email', 'error', 'first_name', 'get', 'is_active', 'last_login', 'last_name', 'message', 'new_password', 'old_password', 'partial_update', 'phone', 'post', 'request', 'role', 'update', 'username']

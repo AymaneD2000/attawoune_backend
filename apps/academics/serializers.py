@@ -26,7 +26,7 @@ class CourseListSerializer(serializers.ModelSerializer):
             'course_type', 'course_type_display', 'credits', 'coefficient',
             'semester_type', 'semester_type_display', 'level', 'level_display',
             'hours_lecture', 'hours_tutorial', 'hours_practical',
-            'total_hours', 'is_active'
+            'total_hours', 'description', 'is_active'
         ]
 
 
@@ -224,6 +224,14 @@ class GradeListSerializer(serializers.ModelSerializer):
     exam_type_display = serializers.CharField(
         source='exam.get_exam_type_display', read_only=True
     )
+    exam_type = serializers.CharField(source='exam.exam_type', read_only=True)
+    exam_date = serializers.DateField(source='exam.date', read_only=True)
+    max_score = serializers.DecimalField(
+        source='exam.max_score', max_digits=5, decimal_places=2, read_only=True
+    )
+    exam_weight = serializers.DecimalField(
+        source='exam.weight', max_digits=3, decimal_places=2, read_only=True
+    )
     academic_year_name = serializers.CharField(
         source='exam.semester.academic_year.name', read_only=True
     )
@@ -242,8 +250,9 @@ class GradeListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'student', 'student_name', 'student_matricule', 'exam',
             'exam_info', 'course_name', 'course_code', 'exam_type_display',
+            'exam_type', 'exam_date', 'max_score', 'exam_weight',
             'academic_year_name', 'semester_name',
-            'score', 'percentage', 'is_absent', 'graded_by', 'graded_by_name',
+            'score', 'percentage', 'is_absent', 'remarks', 'graded_by', 'graded_by_name',
             'graded_at'
         ]
 

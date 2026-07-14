@@ -1,4 +1,0 @@
-# file: /Users/robotsmali/Documents/university_management_system/backend/apps/finance/migrations/0002_tuitionpayment_level_tuitionpayment_semester.py
-# hypothesis_version: 6.151.6
-
-['0001_initial', '0003_programfee', 'Niveau', 'Semestre', 'finance', 'level', 'semester', 'tuition_payments', 'tuitionpayment', 'university', 'university.level', 'university.semester']

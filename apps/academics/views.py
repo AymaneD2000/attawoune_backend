@@ -17,7 +17,6 @@ from django_filters.rest_framework import DjangoFilterBackend
 from apps.core.permissions import IsAdminOrReadOnly, IsTeacherOrAdmin, IsSecretaryOrAdmin
 from .models import Course, Exam, Grade, CourseGrade, ReportCard
 from django.db import transaction
-from django.db.models import Avg, Max, Min
 from django.http import HttpResponse
 from .utils import export_grades_template, export_current_grades
 from .services.grades import (
@@ -690,24 +689,60 @@ class GradeViewSet(viewsets.ModelViewSet):
             except Student.DoesNotExist:
                 return Response({"error": "Profil étudiant non trouvé"}, status=status.HTTP_404_NOT_FOUND)
 
-        grades = self.get_queryset().filter(student_id=student_id).select_related(
+        grades = list(self.get_queryset().filter(student_id=student_id).select_related(
             'exam', 'exam__course', 'exam__semester', 'exam__semester__academic_year'
-        ).order_by('-exam__date')
+        ).order_by('exam__date', 'graded_at'))
 
         serializer = GradeListSerializer(grades, many=True)
-        
-        # Calculate some stats
-        stats = grades.aggregate(
-            avg_score=Avg('score'),
-            max_score=Max('score'),
-            min_score=Min('score'),
-        )
-        stats['total_exams'] = grades.count()
-        stats['absences'] = grades.filter(is_absent=True).count()
+
+        scored_grades = [grade for grade in grades if not grade.is_absent]
+        normalized_scores = [float(grade.percentage) / 5 for grade in scored_grades]
+        percentages = [float(grade.percentage) for grade in scored_grades]
+
+        def average(values):
+            return round(sum(values) / len(values), 2) if values else 0
+
+        first_window = normalized_scores[:3]
+        last_window = normalized_scores[-3:]
+        stats = {
+            'avg_score': average(normalized_scores),
+            'avg_percentage': average(percentages),
+            'max_score': round(max(normalized_scores), 2) if normalized_scores else 0,
+            'min_score': round(min(normalized_scores), 2) if normalized_scores else 0,
+            'total_exams': len(grades),
+            'absences': len([grade for grade in grades if grade.is_absent]),
+            'pass_rate': round(
+                len([value for value in percentages if value >= 50]) / len(percentages) * 100,
+                1,
+            ) if percentages else 0,
+            'trend_delta': round(average(last_window) - average(first_window), 2)
+            if len(normalized_scores) > 1 else 0,
+        }
+
+        type_buckets = {}
+        for grade in scored_grades:
+            exam_type = grade.exam.exam_type
+            bucket = type_buckets.setdefault(exam_type, {
+                'type': exam_type,
+                'label': grade.exam.get_exam_type_display(),
+                'scores': [],
+            })
+            bucket['scores'].append(float(grade.percentage) / 5)
+
+        type_breakdown = [
+            {
+                'type': bucket['type'],
+                'label': bucket['label'],
+                'count': len(bucket['scores']),
+                'average_score': average(bucket['scores']),
+            }
+            for bucket in type_buckets.values()
+        ]
 
         return Response({
             'grades': serializer.data,
-            'stats': stats
+            'stats': stats,
+            'type_breakdown': type_breakdown,
         })
 
 
