@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/academics/migrations/0003_alter_course_options_remove_course_semester_and_more.py
+# hypothesis_version: 6.151.6
+
+['0002_initial', 'Cours', 'Niveau', 'S1', 'S2', 'Semestre', 'Semestre 1', 'Semestre 2', 'academics', 'code', 'course', 'courses', 'level', 'ordering', 'program', 'semester', 'semester_type', 'university', 'university.level', 'verbose_name', 'verbose_name_plural']

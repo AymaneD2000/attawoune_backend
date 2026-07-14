@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/academics/migrations/0005_coursegrade_publication_state.py
+# hypothesis_version: 6.151.6
+
+['Publié', 'academics', 'coursegrade', 'is_published', 'published_at']

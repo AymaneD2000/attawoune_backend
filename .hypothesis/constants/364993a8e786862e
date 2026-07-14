@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/university/dashboard.py
+# hypothesis_version: 6.151.6
+
+['-created_at', '-graded_at', '-payment_date', '??', 'ACCOUNTANT', 'ACTIVE', 'ADMIN', 'DEAN', 'N/A', 'SECRETARY', 'STUDENT', 'TEACHER', 'amount', 'avatar', 'average', 'blue', 'classroom', 'color', 'course', 'course__credits', 'courses_count', 'credits', 'credits_total', 'credits_validated', 'current_level', 'date', 'departments_count', 'error', 'exam', 'exam__course', 'final_score', 'green', 'id', 'level', 'location', 'name', 'program', 'programs_count', 'recent_grades', 'recent_inscriptions', 'recent_payments', 'reference', 'role', 'schedule', 'score', 'status', 'student', 'student__user', 'student_name', 'students_count', 'teachers_count', 'time', 'time_slot', 'total', 'type', 'user', 'value', '💳']

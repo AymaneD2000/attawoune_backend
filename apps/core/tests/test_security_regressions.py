@@ -58,6 +58,27 @@ class AccountSecurityRegressionTests(TestCase):
                     (creator_role, requested_role, response.data),
                 )
 
+    def test_admin_can_create_every_role(self):
+        self.client.force_authenticate(self.users[User.Role.ADMIN])
+
+        for requested_role in User.Role.values:
+            response = self.client.post('/api/v1/accounts/users/', {
+                'username': f'admin_created_{requested_role.lower()}',
+                'email': f'admin_created_{requested_role.lower()}@example.test',
+                'password': 'ComplexPass123!',
+                'password_confirm': 'ComplexPass123!',
+                'first_name': 'Created',
+                'last_name': requested_role.title(),
+                'role': requested_role,
+                'gender': 'M',
+                'is_active': True,
+            })
+            self.assertEqual(
+                response.status_code,
+                201,
+                (requested_role, response.data),
+            )
+
     def test_non_managers_cannot_create_users(self):
         for role in (User.Role.TEACHER, User.Role.STUDENT, User.Role.ACCOUNTANT):
             self.client.force_authenticate(self.users[role])

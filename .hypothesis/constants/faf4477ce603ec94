@@ -1,0 +1,4 @@
+# file: /Users/robotsmali/Documents/university_management_system/backend/apps/university/views.py
+# hypothesis_version: 6.151.6
+
+['%H:%M', '-start_date', 'ACTIVE', 'N/A', 'academic_year', 'academic_year__name', 'available', 'building', 'capacity', 'check_availability', 'classroom', 'classroom_id', 'code', 'conflicts', 'count', 'course', 'courses', 'created_at', 'credits', 'current_level', 'day', 'dean', 'department', 'department__faculty', 'departments', 'description', 'end_time', 'error', 'faculty', 'full_name', 'get', 'has_computers', 'has_projector', 'head', 'id', 'is_active', 'is_available', 'is_current', 'level', 'levels', 'list', 'message', 'min_capacity', 'name', 'order', 'post', 'program', 'programs', 'results', 'retrieve', 'semester', 'semester_id', 'semester_type', 'semesters', 'start_date', 'start_time', 'status', 'student_id', 'students', 'teacher', 'teachers', 'time_slot', 'time_slot_id', 'user']
