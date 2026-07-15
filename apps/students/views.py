@@ -331,11 +331,13 @@ class StudentViewSet(viewsets.ModelViewSet):
         
         student = self.get_object()
         generator = IDCardGenerator(student)
-        image_stream = generator.generate()
+        image_bytes, cache_key = generator.generate_cached()
         
-        response = HttpResponse(image_stream, content_type='image/png')
+        response = HttpResponse(image_bytes, content_type='image/png')
         filename = f"carte_etudiant_{student.student_id}.png"
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Cache-Control'] = 'private, max-age=3600'
+        response['ETag'] = f'"{cache_key.rsplit(":", 1)[-1]}"'
         return response
 
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated, IsSecretaryOrAdmin])
@@ -356,7 +358,9 @@ class StudentViewSet(viewsets.ModelViewSet):
         # Create zip in memory
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, 'a', zipfile.ZIP_DEFLATED) as zip_file:
-            students = Student.objects.filter(id__in=student_ids)
+            students = Student.objects.filter(id__in=student_ids).select_related(
+                'user', 'program', 'current_level',
+            ).prefetch_related('enrollments__academic_year')
             if not students.exists():
                 return Response(
                      {"error": "Aucun étudiant trouvé pour les IDs fournis"},
@@ -366,11 +370,11 @@ class StudentViewSet(viewsets.ModelViewSet):
             for student in students:
                 try:
                     generator = IDCardGenerator(student)
-                    image_stream = generator.generate()
+                    image_bytes, _ = generator.generate_cached()
                     # Add to zip
                     # Ensure unique filenames in case of duplicates? student_id should be unique.
                     filename = f"carte_etudiant_{student.student_id}.png"
-                    zip_file.writestr(filename, image_stream.getvalue())
+                    zip_file.writestr(filename, image_bytes)
                 except Exception as e:
                     # Log error or skip
                     print(f"Error generating ID card for {student.id}: {e}")

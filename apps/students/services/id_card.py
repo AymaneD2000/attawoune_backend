@@ -1,12 +1,14 @@
 import hashlib
 import re
+from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
 
+from django.core.cache import cache
 from django.utils import timezone
-from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps, features
 
-from apps.core.services.rtl import contains_arabic
+from apps.core.services.rtl import contains_arabic, shape_arabic
 
 
 ASSET_DIR = Path(__file__).resolve().parents[1] / "assets" / "id_card"
@@ -18,6 +20,21 @@ FONT_ARABIC = FONT_DIR / "NotoSansArabic-Regular.ttf"
 FONT_ARABIC_BOLD = FONT_DIR / "NotoSansArabic-Bold.ttf"
 LOGO_PATH = ASSET_DIR / "logo.jpg"
 MIXED_ID_RUN_PATTERN = re.compile(r"[\u0600-\u06FF]+|[^\u0600-\u06FF]+")
+RAQM_AVAILABLE = features.check("raqm")
+
+
+@lru_cache(maxsize=128)
+def _load_font(path, size):
+    return ImageFont.truetype(path, size)
+
+
+@lru_cache(maxsize=4)
+def _prepared_logo(size):
+    logo = Image.open(LOGO_PATH).convert("RGB")
+    logo = ImageOps.fit(logo, (size, size), method=Image.Resampling.LANCZOS)
+    mask = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, size - 1, size - 1), fill=255)
+    return logo, mask
 
 
 class IDCardGenerator:
@@ -49,21 +66,56 @@ class IDCardGenerator:
         self._draw_footer(draw)
 
         output = BytesIO()
-        card.save(output, format="PNG", optimize=True, dpi=(300, 300))
+        card.save(output, format="PNG", compress_level=4, dpi=(300, 300))
         output.seek(0)
         return output
+
+    def generate_cached(self):
+        cache_key = self.cache_key()
+        image_bytes = cache.get(cache_key)
+        if image_bytes is None:
+            image_bytes = self.generate().getvalue()
+            cache.set(cache_key, image_bytes, timeout=60 * 60 * 24)
+        return image_bytes, cache_key
+
+    def cache_key(self):
+        academic_year, valid_until = self._academic_period()
+        user = self.student.user
+        photo = getattr(self.student, "photo", None)
+        photo_name = getattr(photo, "name", "") if photo else ""
+        source = "|".join([
+            "student-card-v4",
+            str(getattr(self.student, "pk", getattr(self.student, "id", ""))),
+            str(getattr(self.student, "updated_at", "")),
+            str(getattr(user, "updated_at", "")),
+            self._full_name(),
+            str(self.student.student_id),
+            str(getattr(self.student.program, "name", "")),
+            self._level_label(),
+            str(getattr(self.student, "status", "")),
+            photo_name,
+            academic_year,
+            valid_until,
+        ])
+        digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
+        return f"student-id-card:{digest}"
 
     def _font(self, size, *, bold=False, arabic=False):
         if arabic:
             path = FONT_ARABIC_BOLD if bold else FONT_ARABIC
         else:
             path = FONT_LATIN_BOLD if bold else FONT_LATIN
-        return ImageFont.truetype(str(path), size)
+        return _load_font(str(path), size)
 
     def _display_text(self, value):
-        return str(value or "").strip()
+        text = str(value or "").strip()
+        if contains_arabic(text) and not RAQM_AVAILABLE:
+            return shape_arabic(text)
+        return text
 
     def _text_options(self, value, *, force_ltr=False):
+        if not RAQM_AVAILABLE:
+            return {}
         if force_ltr:
             return {"direction": "ltr", "language": "fr"}
         if contains_arabic(value) and not force_ltr:
@@ -126,7 +178,7 @@ class IDCardGenerator:
         arabic_university_name = "جامعة التعاون الخاصة"
         draw.text(
             (720, 82),
-            arabic_university_name,
+            self._display_text(arabic_university_name),
             font=self._font(26, bold=True, arabic=True),
             fill=(204, 240, 218),
             anchor="ra",
@@ -156,10 +208,7 @@ class IDCardGenerator:
         )
 
     def _paste_logo(self, card, x, y, size):
-        logo = Image.open(LOGO_PATH).convert("RGB")
-        logo = ImageOps.fit(logo, (size, size), method=Image.Resampling.LANCZOS)
-        mask = Image.new("L", (size, size), 0)
-        ImageDraw.Draw(mask).ellipse((0, 0, size - 1, size - 1), fill=255)
+        logo, mask = _prepared_logo(size)
         ring_size = size + 10
         ring = Image.new("RGBA", (ring_size, ring_size), (255, 255, 255, 0))
         ImageDraw.Draw(ring).ellipse((0, 0, ring_size - 1, ring_size - 1), fill=(255, 255, 255, 245))
@@ -383,9 +432,10 @@ class IDCardGenerator:
             for run in runs:
                 arabic = contains_arabic(run)
                 font = self._font(size, bold=True, arabic=arabic)
-                box = draw.textbbox((0, 0), run, font=font, **self._text_options(run))
+                display_run = self._display_text(run)
+                box = draw.textbbox((0, 0), display_run, font=font, **self._text_options(run))
                 width = box[2] - box[0]
-                measured.append((run, font, width))
+                measured.append((run, display_run, font, width))
                 total_width += width
             separator_font = self._font(max(size - 2, 10), bold=True)
             separator_box = draw.textbbox((0, 0), separator, font=separator_font)
@@ -395,10 +445,10 @@ class IDCardGenerator:
                 break
 
         cursor = x
-        for index, (run, font, width) in enumerate(measured):
+        for index, (run, display_run, font, width) in enumerate(measured):
             draw.text(
                 (cursor, y),
-                run,
+                display_run,
                 font=font,
                 fill=self.blue,
                 anchor="lm",

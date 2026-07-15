@@ -1,7 +1,9 @@
 from datetime import date
 from io import BytesIO
 from types import SimpleNamespace
+from unittest.mock import patch
 
+from django.core.cache import cache
 from django.test import SimpleTestCase
 from PIL import Image
 
@@ -26,6 +28,9 @@ class FakeEnrollmentManager:
 
 
 class StudentIDCardTests(SimpleTestCase):
+    def setUp(self):
+        cache.clear()
+
     def test_generates_print_ready_branded_card_with_arabic_identity(self):
         academic_year = SimpleNamespace(
             name="2025 - 2026",
@@ -52,7 +57,8 @@ class StudentIDCardTests(SimpleTestCase):
             ),
         )
 
-        png = IDCardGenerator(student).generate().getvalue()
+        generator = IDCardGenerator(student)
+        png = generator.generate().getvalue()
         image = Image.open(BytesIO(png))
 
         self.assertEqual(image.format, "PNG")
@@ -60,3 +66,15 @@ class StudentIDCardTests(SimpleTestCase):
         self.assertGreater(len(png), 80_000)
         self.assertNotEqual(image.getpixel((20, 20)), (255, 255, 255))
         self.assertNotEqual(image.getpixel((20, 600)), (255, 255, 255))
+
+        with patch.object(generator, "generate", wraps=generator.generate) as generate:
+            first, first_key = generator.generate_cached()
+            second, second_key = generator.generate_cached()
+
+        self.assertEqual(generate.call_count, 1)
+        self.assertEqual(first, second)
+        self.assertEqual(first_key, second_key)
+
+        with patch("apps.students.services.id_card.RAQM_AVAILABLE", False):
+            fallback = IDCardGenerator(student).generate().getvalue()
+        self.assertTrue(fallback.startswith(b"\x89PNG"))
