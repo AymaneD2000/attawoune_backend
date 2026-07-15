@@ -187,3 +187,32 @@ class CustomActionAuthorizationMatrixTests(TestCase):
                         self.assertNotEqual(response.status_code, 403, response.data)
                     else:
                         self.assertEqual(response.status_code, 403, response.data)
+
+
+class DestructiveEndpointAuthorizationMatrixTests(TestCase):
+    FINANCE_ROLES = {User.Role.ADMIN, User.Role.ACCOUNTANT}
+    ENDPOINTS = [
+        ('/api/v1/finance/tuition-payments/999999/', FINANCE_ROLES),
+    ]
+
+    def setUp(self):
+        self.client = APIClient()
+        self.users = {
+            role: User.objects.create_user(
+                username=f'{role.lower()}_destructive_matrix',
+                password='ComplexPass123!',
+                role=role,
+            )
+            for role in User.Role.values
+        }
+
+    def test_every_role_against_every_destructive_endpoint(self):
+        for url, allowed_roles in self.ENDPOINTS:
+            for role, user in self.users.items():
+                with self.subTest(url=url, role=role):
+                    self.client.force_authenticate(user)
+                    response = self.client.delete(url)
+                    if role in allowed_roles:
+                        self.assertNotEqual(response.status_code, 403, response.data)
+                    else:
+                        self.assertEqual(response.status_code, 403, response.data)
