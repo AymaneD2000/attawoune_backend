@@ -85,6 +85,15 @@ class StudentViewSet(viewsets.ModelViewSet):
         if self.action in ['list', 'retrieve', 'enrollments', 'grades', 'attendance_stats']:
             return [IsAuthenticated()]
         return [IsAuthenticated(), IsSecretaryOrAdmin()]
+
+    def perform_update(self, serializer):
+        """Save the student and discard the previous generated card version."""
+        from django.core.cache import cache
+        from apps.students.services.id_card import IDCardGenerator
+
+        previous_card_key = IDCardGenerator(serializer.instance).cache_key()
+        serializer.save()
+        cache.delete(previous_card_key)
     
     def get_queryset(self):
         """
@@ -336,7 +345,10 @@ class StudentViewSet(viewsets.ModelViewSet):
         response = HttpResponse(image_bytes, content_type='image/png')
         filename = f"carte_etudiant_{student.student_id}.png"
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        response['Cache-Control'] = 'private, max-age=3600'
+        # The server-side generator remains cached, but browsers must always
+        # request the current fingerprint after a profile/photo update.
+        response['Cache-Control'] = 'private, no-store, max-age=0'
+        response['Pragma'] = 'no-cache'
         response['ETag'] = f'"{cache_key.rsplit(":", 1)[-1]}"'
         return response
 

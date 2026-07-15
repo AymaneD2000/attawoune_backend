@@ -1,6 +1,10 @@
 #!/bin/sh
 set -eu
 
+# Coolify stores SQLite and uploaded student photos on the same persistent
+# /data volume. Creating the media directory is harmless for local containers.
+mkdir -p /data/media
+
 echo "Running migrations..."
 python manage.py migrate --noinput
 

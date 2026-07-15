@@ -11,7 +11,7 @@ This module provides:
 
 from django.contrib import admin
 from django.urls import path, include
-from .views import health_check
+from .views import health_check, student_photo
 from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework_simplejwt.views import (
@@ -35,7 +35,7 @@ api_v1_patterns = [
     path('finance/', include('apps.finance.urls')),
     path('scheduling/', include('apps.scheduling.urls')),
     path('audit/', include('apps.audit.urls')),
-    
+
     # Auth
     path('auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
@@ -45,6 +45,13 @@ api_v1_patterns = [
 urlpatterns = [
     # Health check
     path("health/", health_check, name='health_check'),
+
+    # Public student profile photos only. Other uploaded documents stay private.
+    path(
+        "media/students/photos/<path:path>",
+        student_photo,
+        name="student-photo",
+    ),
 
     # Admin
     path("admin/", admin.site.urls),
@@ -58,8 +65,6 @@ urlpatterns = [
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]
 
-# Serve media files in development
+# Serve collected static files in development
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-

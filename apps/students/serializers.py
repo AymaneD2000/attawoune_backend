@@ -3,6 +3,17 @@ from .models import Student, Enrollment, Attendance
 
 
 # Student Serializers
+class StudentPhotoValidationMixin:
+    max_photo_size = 5 * 1024 * 1024
+
+    def validate_photo(self, value):
+        if value and value.size > self.max_photo_size:
+            raise serializers.ValidationError(
+                "La photo ne doit pas dépasser 5 Mo."
+            )
+        return value
+
+
 class StudentListSerializer(serializers.ModelSerializer):
     """List serializer for Student with basic fields."""
     user_name = serializers.CharField(source='user.get_full_name', read_only=True)
@@ -23,7 +34,7 @@ class StudentListSerializer(serializers.ModelSerializer):
         ]
 
 
-class StudentDetailSerializer(serializers.ModelSerializer):
+class StudentDetailSerializer(StudentPhotoValidationMixin, serializers.ModelSerializer):
     """Detail serializer for Student with all fields and computed properties."""
     user_name = serializers.CharField(source='user.get_full_name', read_only=True)
     first_name = serializers.CharField(source='user.first_name', read_only=True)
@@ -62,8 +73,23 @@ class StudentDetailSerializer(serializers.ModelSerializer):
             ]
         return []
 
+    def update(self, instance, validated_data):
+        replacing_photo = 'photo' in validated_data
+        old_photo_name = instance.photo.name if replacing_photo and instance.photo else ''
+        old_photo_storage = instance.photo.storage if old_photo_name else None
 
-class StudentCreateSerializer(serializers.ModelSerializer):
+        student = super().update(instance, validated_data)
+
+        if (
+            old_photo_storage
+            and old_photo_name
+            and old_photo_name != getattr(student.photo, 'name', '')
+        ):
+            old_photo_storage.delete(old_photo_name)
+        return student
+
+
+class StudentCreateSerializer(StudentPhotoValidationMixin, serializers.ModelSerializer):
     """Create serializer for Student with validation."""
     
     class Meta:

@@ -135,8 +135,16 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Media files
-MEDIA_URL = "media/"
-MEDIA_ROOT = BASE_DIR / "media"
+# Keep uploads beside a persistent SQLite database in production (Coolify uses
+# /data/db.sqlite3), while retaining backend/media for local development.
+MEDIA_URL = "/media/"
+default_media_root = BASE_DIR / "media"
+default_database = DATABASES["default"]
+if default_database["ENGINE"] == "django.db.backends.sqlite3":
+    sqlite_path = Path(str(default_database["NAME"]))
+    if sqlite_path.is_absolute() and sqlite_path.parent != Path("/"):
+        default_media_root = sqlite_path.parent / "media"
+MEDIA_ROOT = Path(config("MEDIA_ROOT", default=str(default_media_root)))
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

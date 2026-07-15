@@ -1,5 +1,37 @@
-from django.http import JsonResponse
+import mimetypes
+from pathlib import Path
+
+from django.conf import settings
 from django.db import connection
+from django.http import FileResponse, Http404, JsonResponse
+from django.views.decorators.http import require_GET
+
+
+@require_GET
+def student_photo(request, path):
+    """Serve public student photos without exposing private uploaded receipts."""
+    photo_root = (Path(settings.MEDIA_ROOT) / "students" / "photos").resolve()
+    requested_file = (photo_root / path).resolve()
+
+    try:
+        requested_file.relative_to(photo_root)
+    except ValueError as exc:
+        raise Http404 from exc
+
+    if not requested_file.is_file():
+        raise Http404
+
+    content_type, encoding = mimetypes.guess_type(requested_file.name)
+    response = FileResponse(
+        requested_file.open("rb"),
+        content_type=content_type or "application/octet-stream",
+    )
+    if encoding:
+        response["Content-Encoding"] = encoding
+    response["Cache-Control"] = "public, max-age=3600"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
+
 
 def health_check(request):
     """
