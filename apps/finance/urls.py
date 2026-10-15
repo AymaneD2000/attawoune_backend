@@ -6,6 +6,7 @@ router = DefaultRouter()
 router.register(r'tuition-payments', views.TuitionPaymentViewSet)
 router.register(r'tuition-fees', views.TuitionFeeViewSet)
 router.register(r'student-balances', views.StudentBalanceViewSet)
+router.register(r'student-debts', views.StudentDebtViewSet)
 router.register(r'salaries', views.SalaryViewSet)
 router.register(r'expenses', views.ExpenseViewSet)
 

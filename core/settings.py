@@ -85,7 +85,11 @@ if DATABASE_URL:
         if database_name in {"", "/", "/:memory:"}:
             database_name = ":memory:"
         elif database_name.startswith("//"):
+            # sqlite:////data/db.sqlite3 → absolute path (production)
             database_name = database_name[1:]
+        else:
+            # sqlite:///db.sqlite3 → treat as a path relative to BASE_DIR
+            database_name = BASE_DIR / database_name.lstrip("/")
         DATABASES = {
             "default": {
                 "ENGINE": "django.db.backends.sqlite3",

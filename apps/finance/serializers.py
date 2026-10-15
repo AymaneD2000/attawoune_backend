@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from decimal import Decimal
 from django.utils import timezone
-from .models import TuitionPayment, TuitionFee, StudentBalance, Salary, Expense
+from .models import TuitionPayment, TuitionFee, StudentBalance, Salary, Expense, StudentDebt, DebtPayment
 
 
 # TuitionPayment Serializers
@@ -463,6 +463,88 @@ class ExpenseCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Le montant doit être positif."
             )
+        return value
+
+
+# StudentDebt Serializers
+class DebtPaymentDisplaySerializer(serializers.ModelSerializer):
+    """Display serializer for DebtPayment (read-only in debt detail)."""
+    payment_method_display = serializers.CharField(
+        source='get_payment_method_display', read_only=True
+    )
+    received_by_name = serializers.CharField(
+        source='received_by.get_full_name', read_only=True, default=None
+    )
+
+    class Meta:
+        model = DebtPayment
+        fields = [
+            'id', 'amount', 'payment_date', 'payment_method',
+            'payment_method_display', 'reference', 'notes',
+            'received_by', 'received_by_name', 'created_at'
+        ]
+
+
+class DebtPaymentCreateSerializer(serializers.ModelSerializer):
+    """Serializer for recording a payment against a student debt."""
+
+    class Meta:
+        model = DebtPayment
+        fields = ['amount', 'payment_date', 'payment_method', 'notes']
+
+    def validate_amount(self, value):
+        if value is None or value <= 0:
+            raise serializers.ValidationError("Le montant payé doit être supérieur à zéro.")
+        return value
+
+
+class StudentDebtListSerializer(serializers.ModelSerializer):
+    """List serializer for StudentDebt with display fields."""
+    student_name = serializers.CharField(
+        source='student.user.get_full_name', read_only=True
+    )
+    student_matricule = serializers.CharField(
+        source='student.student_id', read_only=True
+    )
+    academic_year_name = serializers.SerializerMethodField()
+    status_display = serializers.CharField(
+        source='get_status_display', read_only=True
+    )
+    outstanding = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True
+    )
+
+    class Meta:
+        model = StudentDebt
+        fields = [
+            'id', 'student', 'student_name', 'student_matricule',
+            'academic_year', 'academic_year_name', 'amount_due', 'amount_paid',
+            'outstanding', 'status', 'status_display', 'description',
+            'recorded_by', 'created_at'
+        ]
+
+    def get_academic_year_name(self, obj):
+        return obj.academic_year.name if obj.academic_year else None
+
+
+class StudentDebtDetailSerializer(StudentDebtListSerializer):
+    """Detail serializer for StudentDebt including its payments."""
+    payments = DebtPaymentDisplaySerializer(many=True, read_only=True)
+
+    class Meta(StudentDebtListSerializer.Meta):
+        fields = StudentDebtListSerializer.Meta.fields + ['payments']
+
+
+class StudentDebtCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating/updating a student debt."""
+
+    class Meta:
+        model = StudentDebt
+        fields = ['student', 'academic_year', 'amount_due', 'description']
+
+    def validate_amount_due(self, value):
+        if value is None or value <= 0:
+            raise serializers.ValidationError("Le montant dû doit être supérieur à zéro.")
         return value
 
 

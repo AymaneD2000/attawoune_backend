@@ -1,12 +1,22 @@
 
 # Backend (Django)
 venv/
-__pycache__/
-*.py[cod]
-*$py.class
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+*.sqlite3
+**/*.sqlite3
+.DS_Store
+.hypothesis/
 media/
 static/
+staticfiles/
 .pytest_cache/
 backups/
+.env.backup
+run_backup.sh
+tet
 *.tar.gz.enc
 *.backup.tmp
+*.xlsx
+*.docx

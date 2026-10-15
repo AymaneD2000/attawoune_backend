@@ -307,3 +307,146 @@ class Expense(models.Model):
 
     def __str__(self):
         return f"{self.get_category_display()} - {self.amount} ({self.date})"
+
+
+class StudentDebt(models.Model):
+    """Dette d'un étudiant : montant dû non suivi dans le système
+    (ex. frais de scolarité d'années précédentes) enregistré pour suivi.
+
+    S'utilise lors de la première mise en place de l'application pour
+    importer et suivre les dettes existantes des étudiants.
+    """
+
+    class DebtStatus(models.TextChoices):
+        OPEN = 'OPEN', 'Non réglée'
+        PARTIAL = 'PARTIAL', 'Partiellement réglée'
+        PAID = 'PAID', 'Réglée'
+
+    student = models.ForeignKey(
+        'students.Student',
+        on_delete=models.CASCADE,
+        related_name='debts',
+        verbose_name="Étudiant"
+    )
+    academic_year = models.ForeignKey(
+        'university.AcademicYear',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='student_debts',
+        verbose_name="Année académique concernée"
+    )
+    amount_due = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name="Montant dû"
+    )
+    amount_paid = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name="Montant payé"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=DebtStatus.choices,
+        default=DebtStatus.OPEN,
+        verbose_name="Statut"
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name="Description"
+    )
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='recorded_debts',
+        verbose_name="Enregistré par"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Dette étudiant"
+        verbose_name_plural = "Dettes étudiants"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Dette de {self.student} : {self.outstanding} restant"
+
+    @property
+    def outstanding(self):
+        """Montant restant à recouvrer."""
+        return max(self.amount_due - self.amount_paid, Decimal('0.00'))
+
+    @property
+    def is_paid(self):
+        return self.amount_paid >= self.amount_due
+
+    def sync_status(self):
+        """Recalcule le statut à partir des montants."""
+        if self.amount_due > 0 and self.amount_paid >= self.amount_due:
+            self.status = self.DebtStatus.PAID
+        elif self.amount_paid > 0:
+            self.status = self.DebtStatus.PARTIAL
+        else:
+            self.status = self.DebtStatus.OPEN
+
+    def save(self, *args, **kwargs):
+        self.sync_status()
+        super().save(*args, **kwargs)
+
+
+class DebtPayment(models.Model):
+    """Paiement enregistré au titre d'une dette étudiant."""
+
+    class PaymentMethod(models.TextChoices):
+        CASH = 'CASH', 'Espèces'
+        BANK_TRANSFER = 'BANK_TRANSFER', 'Virement bancaire'
+        MOBILE_MONEY = 'MOBILE_MONEY', 'Mobile Money'
+        CHECK = 'CHECK', 'Chèque'
+        OTHER = 'OTHER', 'Autre'
+
+    debt = models.ForeignKey(
+        StudentDebt,
+        on_delete=models.CASCADE,
+        related_name='payments',
+        verbose_name="Dette"
+    )
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name="Montant"
+    )
+    payment_date = models.DateField(verbose_name="Date de paiement")
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PaymentMethod.choices,
+        default=PaymentMethod.CASH,
+        verbose_name="Méthode de paiement"
+    )
+    reference = models.CharField(
+        max_length=100,
+        unique=True,
+        verbose_name="Référence"
+    )
+    notes = models.TextField(blank=True, verbose_name="Notes")
+    received_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='received_debt_payments',
+        verbose_name="Reçu par"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Paiement de dette"
+        verbose_name_plural = "Paiements de dettes"
+        ordering = ['-payment_date']
+
+    def __str__(self):
+        return f"{self.reference} - {self.debt.student} ({self.amount})"

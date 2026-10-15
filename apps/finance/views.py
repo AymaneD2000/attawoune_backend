@@ -20,16 +20,19 @@ from django.db.models import Count, Sum, F, Q
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
 from datetime import date
+from decimal import Decimal
 import uuid
 
 from apps.core.permissions import IsAccountantOrAdmin, IsFinanceViewer
-from .models import TuitionPayment, TuitionFee, StudentBalance, Salary, Expense
+from .models import TuitionPayment, TuitionFee, StudentBalance, Salary, Expense, StudentDebt, DebtPayment
 from .serializers import (
     TuitionPaymentListSerializer, TuitionPaymentDetailSerializer, TuitionPaymentCreateSerializer,
     TuitionFeeListSerializer, TuitionFeeDetailSerializer, TuitionFeeCreateSerializer,
     StudentBalanceListSerializer, StudentBalanceDetailSerializer,
     SalaryListSerializer, SalaryDetailSerializer, SalaryCreateSerializer,
     ExpenseListSerializer, ExpenseDetailSerializer, ExpenseCreateSerializer,
+    StudentDebtListSerializer, StudentDebtDetailSerializer, StudentDebtCreateSerializer,
+    DebtPaymentCreateSerializer, DebtPaymentDisplaySerializer,
     # Backward compatibility
     TuitionPaymentSerializer, TuitionFeeSerializer,
     StudentBalanceSerializer, SalarySerializer, ExpenseSerializer
@@ -534,6 +537,126 @@ class StudentBalanceViewSet(viewsets.ModelViewSet):
         response = HttpResponse(buffer, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
+
+
+class StudentDebtViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing legacy student debts.
+
+    Used when the university starts using the application: debts from
+    previous years (e.g. tuition that was never tracked) can be recorded
+    here and followed until they are settled.
+
+    Provides:
+    - List: GET /api/v1/finance/student-debts/
+    - Create: POST /api/v1/finance/student-debts/
+    - Retrieve: GET /api/v1/finance/student-debts/{id}/
+    - Update: PUT/PATCH /api/v1/finance/student-debts/{id}/
+    - Delete: DELETE /api/v1/finance/student-debts/{id}/
+
+    Custom Actions:
+    - record-payment: POST /api/v1/finance/student-debts/{id}/record-payment/
+    - delete a debt payment: DELETE /api/v1/finance/student-debts/{id}/payments/{payment_id}/
+
+    Permissions:
+    - Read: finance viewers (admin, accountant, secretary, dean)
+    - Write: admin and accountant only (via IsFinanceViewer)
+
+    Filtering:
+    - student, academic_year, status
+
+    Searching:
+    - student name, student ID, description
+
+    Ordering:
+    - amount_due, amount_paid, created_at
+    """
+
+    queryset = StudentDebt.objects.select_related(
+        'student', 'student__user', 'academic_year'
+    ).all()
+
+    permission_classes = [IsAuthenticated, IsFinanceViewer]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['student', 'academic_year', 'status']
+    search_fields = ['student__user__first_name', 'student__user__last_name', 'student__student_id', 'description']
+    ordering_fields = ['amount_due', 'amount_paid', 'created_at']
+    ordering = ['-created_at']
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return StudentDebtListSerializer
+        if self.action == 'retrieve':
+            return StudentDebtDetailSerializer
+        if self.action == 'create':
+            return StudentDebtCreateSerializer
+        return StudentDebtCreateSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(recorded_by=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        """Create and return the debt with its full representation."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        detail = StudentDebtDetailSerializer(serializer.instance)
+        headers = self.get_success_headers(detail.data)
+        return Response(detail.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    @action(detail=True, methods=['post'], url_path='record-payment')
+    def record_payment(self, request, pk=None):
+        """
+        Record a payment against this debt.
+
+        Body:
+        - amount (required): payment amount
+        - payment_date (required): date of the payment
+        - payment_method (optional, default CASH)
+        - notes (optional)
+        """
+        debt = self.get_object()
+        serializer = DebtPaymentCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        with transaction.atomic():
+            reference = f"DEBT-{uuid.uuid4().hex[:10].upper()}"
+            payment = DebtPayment.objects.create(
+                debt=debt,
+                reference=reference,
+                received_by=request.user,
+                **serializer.validated_data
+            )
+            debt.amount_paid = (debt.amount_paid or Decimal('0.00')) + payment.amount
+            debt.save()  # status is synced from amounts
+
+        return Response({
+            'message': 'Paiement enregistré sur la dette.',
+            'payment': DebtPaymentDisplaySerializer(payment).data,
+            'debt': StudentDebtDetailSerializer(debt).data,
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['delete'], url_path=r'payments/(?P<payment_id>[^/.]+)')
+    def delete_payment(self, request, pk=None, payment_id=None):
+        """Remove a payment record and reduce the debt's paid amount accordingly."""
+        debt = self.get_object()
+        try:
+            payment = debt.payments.get(pk=payment_id)
+        except DebtPayment.DoesNotExist:
+            return Response(
+                {'error': 'Paiement introuvable pour cette dette.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        with transaction.atomic():
+            payment.delete()
+            debt.amount_paid = max((debt.amount_paid or Decimal('0.00')) - payment.amount, Decimal('0.00'))
+            debt.save()  # status is synced from amounts
+
+        return Response({
+            'message': 'Paiement supprimé, solde de la dette mis à jour.',
+            'debt': StudentDebtDetailSerializer(debt).data,
+        })
 
 
 class SalaryViewSet(viewsets.ModelViewSet):
