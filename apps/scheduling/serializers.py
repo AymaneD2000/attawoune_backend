@@ -21,7 +21,7 @@ class TimeSlotDetailSerializer(serializers.ModelSerializer):
         model = TimeSlot
         fields = '__all__'
     
-    def get_schedules_count(self, obj):
+    def get_schedules_count(self, obj) -> int:
         return obj.schedules.filter(is_active=True).count()
 
 
@@ -126,7 +126,7 @@ class ScheduleDetailSerializer(serializers.ModelSerializer):
         model = Schedule
         fields = '__all__'
     
-    def get_sessions_count(self, obj):
+    def get_sessions_count(self, obj) -> int:
         return obj.sessions.count()
 
 
@@ -259,7 +259,7 @@ class CourseSessionDetailSerializer(serializers.ModelSerializer):
         model = CourseSession
         fields = '__all__'
     
-    def get_attendance_count(self, obj):
+    def get_attendance_count(self, obj) -> int:
         return obj.attendances.count()
 
 

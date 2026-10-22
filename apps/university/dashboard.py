@@ -1,8 +1,10 @@
+from rest_framework import serializers
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from django.db.models import Avg, Sum
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 from apps.students.models import Enrollment, Student
 from apps.teachers.models import Teacher
@@ -17,6 +19,27 @@ class DashboardView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses=inline_serializer(
+            name='RoleDashboardResponse',
+            fields={
+                'role': serializers.CharField(),
+                'students_count': serializers.IntegerField(required=False),
+                'teachers_count': serializers.IntegerField(required=False),
+                'programs_count': serializers.IntegerField(required=False),
+                'departments_count': serializers.IntegerField(required=False),
+                'current_year': serializers.CharField(required=False, allow_null=True),
+                'courses_count': serializers.IntegerField(required=False),
+                'average': serializers.DecimalField(max_digits=6, decimal_places=2, required=False, allow_null=True),
+                'credits_validated': serializers.IntegerField(required=False),
+                'credits_total': serializers.IntegerField(required=False),
+                'recent_inscriptions': serializers.ListField(child=serializers.DictField(), required=False),
+                'recent_payments': serializers.ListField(child=serializers.DictField(), required=False),
+                'recent_grades': serializers.ListField(child=serializers.DictField(), required=False),
+                'schedule': serializers.ListField(child=serializers.DictField(), required=False),
+            },
+        )
+    )
     def get(self, request):
         user = request.user
         data = {}
@@ -31,27 +54,62 @@ class DashboardView(APIView):
         return Response(data)
 
     def get_admin_data(self):
-        # Counts
-        students_count = Student.objects.filter(status='ACTIVE').count()
+        from apps.university.models import AcademicYear
+
         teachers_count = Teacher.objects.filter(is_active=True).count()
         programs_count = Program.objects.filter(is_active=True).count()
         departments_count = Department.objects.count()
 
-        # Recent Inscriptions (Last 5 students)
-        recent_students = Student.objects.select_related('user', 'program', 'current_level').order_by('-created_at')[:5]
-        recent_inscriptions = [
-            {
-                'id': s.id,
-                'name': s.user.get_full_name(),
-                'program': f"{s.program.name} {s.current_level.name if s.current_level else ''}",
-                'date': s.created_at,
-                'avatar': s.user.first_name[0] + s.user.last_name[0] if s.user.first_name and s.user.last_name else '??'
-            }
-            for s in recent_students
-        ]
+        current_year = AcademicYear.objects.filter(is_current=True).first()
 
-        # Recent Payments (Last 5)
-        recent_payments_qs = TuitionPayment.objects.select_related('student', 'student__user').order_by('-payment_date', '-created_at')[:5]
+        if current_year:
+            # Year isolation: student counts and recent items only reflect
+            # the active academic year. Other years stay invisible.
+            students_count = Student.objects.filter(
+                status='ACTIVE',
+                enrollments__academic_year=current_year,
+                enrollments__is_active=True,
+            ).distinct().count()
+
+            recent_enrollments = (
+                Enrollment.objects.filter(academic_year=current_year, is_active=True)
+                .select_related('student__user', 'student__program', 'program', 'level')
+                .order_by('-enrollment_date')[:5]
+            )
+            recent_inscriptions = [
+                {
+                    'id': e.student.id,
+                    'name': e.student.user.get_full_name(),
+                    'program': f"{e.program.name} {e.level.name if e.level else ''}",
+                    'date': e.enrollment_date,
+                    'avatar': e.student.user.first_name[0] + e.student.user.last_name[0]
+                        if e.student.user.first_name and e.student.user.last_name else '??',
+                }
+                for e in recent_enrollments
+            ]
+
+            recent_payments_qs = (
+                TuitionPayment.objects.filter(academic_year=current_year)
+                .select_related('student', 'student__user')
+                .order_by('-payment_date', '-created_at')[:5]
+            )
+        else:
+            # No active year configured: fall back to all-time figures.
+            students_count = Student.objects.filter(status='ACTIVE').count()
+            recent_students = Student.objects.select_related('user', 'program', 'current_level').order_by('-created_at')[:5]
+            recent_inscriptions = [
+                {
+                    'id': s.id,
+                    'name': s.user.get_full_name(),
+                    'program': f"{s.program.name} {s.current_level.name if s.current_level else ''}",
+                    'date': s.created_at,
+                    'avatar': s.user.first_name[0] + s.user.last_name[0]
+                        if s.user.first_name and s.user.last_name else '??',
+                }
+                for s in recent_students
+            ]
+            recent_payments_qs = TuitionPayment.objects.select_related('student', 'student__user').order_by('-payment_date', '-created_at')[:5]
+
         recent_payments = [
             {
                 'id': p.id,
@@ -71,6 +129,7 @@ class DashboardView(APIView):
             'teachers_count': teachers_count,
             'programs_count': programs_count,
             'departments_count': departments_count,
+            'current_year': str(current_year) if current_year else None,
             'recent_inscriptions': recent_inscriptions,
             'recent_payments': recent_payments
         }
@@ -91,6 +150,7 @@ class DashboardView(APIView):
         students_count = Student.objects.filter(
             status='ACTIVE',
             enrollments__is_active=True,
+            enrollments__academic_year__is_current=True,
             enrollments__program__courses__in=courses,
         ).distinct().count()
         

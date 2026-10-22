@@ -78,19 +78,16 @@ class AcademicsViewSetBasicTests(TestCase):
             head=self.teacher_user
         )
         
-        self.level = Level.objects.create(
-            name='L1',
-            order=1
-        )
+        self.level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         
         self.program = Program.objects.create(
             name='Computer Science L1',
             code='CS-L1',
             department=self.department,
-            level=self.level,
             duration_years=1,
             is_active=True
         )
+        self.program.levels.add(self.level)
         
         # Create student
         self.student = Student.objects.create(
@@ -120,7 +117,8 @@ class AcademicsViewSetBasicTests(TestCase):
             program=self.program,
             course_type='REQUIRED',
             credits=3,
-            semester=self.semester,
+            semester_type='S1',
+            level=self.level,
             is_active=True
         )
         
@@ -142,28 +140,28 @@ class AcademicsViewSetBasicTests(TestCase):
     def test_course_viewset_list_as_admin(self):
         """Test that admin can list courses."""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get('/api/academics/courses/')
+        response = self.client.get('/api/v1/academics/courses/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('results', response.data)
     
     def test_course_viewset_retrieve_as_admin(self):
         """Test that admin can retrieve a course."""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get(f'/api/academics/courses/{self.course.id}/')
+        response = self.client.get(f'/api/v1/academics/courses/{self.course.id}/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['code'], 'CS101')
     
     def test_exam_viewset_list_as_admin(self):
         """Test that admin can list exams."""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get('/api/academics/exams/')
+        response = self.client.get('/api/v1/academics/exams/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('results', response.data)
     
     def test_exam_viewset_retrieve_as_admin(self):
         """Test that admin can retrieve an exam."""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get(f'/api/academics/exams/{self.exam.id}/')
+        response = self.client.get(f'/api/v1/academics/exams/{self.exam.id}/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['exam_type'], 'MIDTERM')
     
@@ -179,7 +177,7 @@ class AcademicsViewSetBasicTests(TestCase):
         )
         
         self.client.force_authenticate(user=self.teacher_user)
-        response = self.client.post('/api/academics/grades/', {
+        response = self.client.post('/api/v1/academics/grades/', {
             'student': self.student.id,
             'exam': self.exam.id,
             'score': '15.50',
@@ -198,7 +196,7 @@ class AcademicsViewSetBasicTests(TestCase):
         )
         
         self.client.force_authenticate(user=self.student_user)
-        response = self.client.get('/api/academics/grades/')
+        response = self.client.get('/api/v1/academics/grades/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('results', response.data)
         self.assertEqual(len(response.data['results']), 1)
@@ -206,33 +204,33 @@ class AcademicsViewSetBasicTests(TestCase):
     def test_course_grade_viewset_list_as_admin(self):
         """Test that admin can list course grades."""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get('/api/academics/course-grades/')
+        response = self.client.get('/api/v1/academics/course-grades/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('results', response.data)
     
     def test_report_card_viewset_list_as_admin(self):
         """Test that admin can list report cards."""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get('/api/academics/report-cards/')
+        response = self.client.get('/api/v1/academics/report-cards/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('results', response.data)
     
     def test_course_viewset_filtering(self):
         """Test that course filtering works."""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get(f'/api/academics/courses/?program={self.program.id}')
+        response = self.client.get(f'/api/v1/academics/courses/?program={self.program.id}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
     
     def test_course_viewset_search(self):
         """Test that course search works."""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get('/api/academics/courses/?search=CS101')
+        response = self.client.get('/api/v1/academics/courses/?search=CS101')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
     
     def test_course_viewset_ordering(self):
         """Test that course ordering works."""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get('/api/academics/courses/?ordering=code')
+        response = self.client.get('/api/v1/academics/courses/?ordering=code')
         self.assertEqual(response.status_code, status.HTTP_200_OK)

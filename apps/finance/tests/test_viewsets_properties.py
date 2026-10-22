@@ -61,13 +61,13 @@ class PaginationPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Create student
         student_user = User.objects.create_user(
@@ -98,7 +98,7 @@ class PaginationPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=accountant)
-        response = client.get('/api/finance/tuition-payments/')
+        response = client.get('/api/v1/finance/tuition-payments/')
         
         # Verify pagination
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -151,13 +151,13 @@ class DetailEndpointPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Create student
         student_user = User.objects.create_user(
@@ -187,7 +187,7 @@ class DetailEndpointPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=accountant)
-        response = client.get(f'/api/finance/tuition-payments/{payment.id}/')
+        response = client.get(f'/api/v1/finance/tuition-payments/{payment.id}/')
         
         # Verify response
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -244,13 +244,13 @@ class CreateOperationPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Create student
         student_user = User.objects.create_user(
@@ -279,7 +279,7 @@ class CreateOperationPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=accountant)
-        response = client.post('/api/finance/tuition-payments/', data)
+        response = client.post('/api/v1/finance/tuition-payments/', data)
         
         # Verify response
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -326,13 +326,13 @@ class UpdateOperationPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Create student
         student_user = User.objects.create_user(
@@ -368,7 +368,7 @@ class UpdateOperationPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=accountant)
-        response = client.patch(f'/api/finance/tuition-payments/{payment.id}/', data)
+        response = client.patch(f'/api/v1/finance/tuition-payments/{payment.id}/', data)
         
         # Verify response
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -417,13 +417,13 @@ class DeleteOperationPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Create student
         student_user = User.objects.create_user(
@@ -453,13 +453,13 @@ class DeleteOperationPropertyTests(TestCase):
         # Make delete request
         client = APIClient()
         client.force_authenticate(user=accountant)
-        response = client.delete(f'/api/finance/tuition-payments/{payment.id}/')
+        response = client.delete(f'/api/v1/finance/tuition-payments/{payment.id}/')
         
         # Verify delete response
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         
         # Verify subsequent GET returns 404
-        response = client.get(f'/api/finance/tuition-payments/{payment.id}/')
+        response = client.get(f'/api/v1/finance/tuition-payments/{payment.id}/')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
@@ -502,13 +502,13 @@ class ValidationErrorPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Create student
         student_user = User.objects.create_user(
@@ -525,24 +525,23 @@ class ValidationErrorPropertyTests(TestCase):
             enrollment_date=date(year, 9, 1)
         )
         
-        # Prepare invalid data (missing required field)
+        # Prepare invalid data (payments must be positive).
         data = {
             'student': student.id,
             'academic_year': academic_year.id,
-            'amount': '1000.00',
-            # Missing reference (required field)
+            'amount': '-1.00',
             'payment_date': date(year, 9, 1).isoformat()
         }
         
         # Make API request
         client = APIClient()
         client.force_authenticate(user=accountant)
-        response = client.post('/api/finance/tuition-payments/', data)
+        response = client.post('/api/v1/finance/tuition-payments/', data)
         
         # Verify validation error
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertTrue(isinstance(response.data, dict))
-        self.assertIn('reference', response.data)
+        self.assertIn('amount', response.data['error']['details'])
 
 
 class NotFoundPropertyTests(TestCase):
@@ -572,7 +571,7 @@ class NotFoundPropertyTests(TestCase):
         # Make API request for non-existent resource
         client = APIClient()
         client.force_authenticate(user=accountant)
-        response = client.get(f'/api/finance/tuition-payments/{non_existent_id}/')
+        response = client.get(f'/api/v1/finance/tuition-payments/{non_existent_id}/')
         
         # Verify not found response
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -626,8 +625,8 @@ class FilterPropertyTests(TestCase):
             name=f'Program-{test_id}',
             code=f'P{test_id}',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Create student
         student_user = User.objects.create_user(
@@ -671,7 +670,7 @@ class FilterPropertyTests(TestCase):
         # Make API request with filter for completed payments
         client = APIClient()
         client.force_authenticate(user=accountant)
-        response = client.get('/api/finance/tuition-payments/?status=COMPLETED')
+        response = client.get('/api/v1/finance/tuition-payments/?status=COMPLETED')
         
         # Verify filter accuracy
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -727,13 +726,13 @@ class SearchPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Create student
         student_user = User.objects.create_user(
@@ -775,7 +774,7 @@ class SearchPropertyTests(TestCase):
         # Make API request with search
         client = APIClient()
         client.force_authenticate(user=accountant)
-        response = client.get(f'/api/finance/tuition-payments/?search={search_term}')
+        response = client.get(f'/api/v1/finance/tuition-payments/?search={search_term}')
         
         # Verify search relevance
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -824,13 +823,13 @@ class OrderingPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Create student
         student_user = User.objects.create_user(
@@ -864,7 +863,7 @@ class OrderingPropertyTests(TestCase):
         # Make API request with ascending order
         client = APIClient()
         client.force_authenticate(user=accountant)
-        response = client.get('/api/finance/tuition-payments/?ordering=amount')
+        response = client.get('/api/v1/finance/tuition-payments/?ordering=amount')
         
         # Verify ordering
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -872,7 +871,7 @@ class OrderingPropertyTests(TestCase):
         self.assertEqual(result_amounts, sorted(result_amounts))
         
         # Make API request with descending order
-        response = client.get('/api/finance/tuition-payments/?ordering=-amount')
+        response = client.get('/api/v1/finance/tuition-payments/?ordering=-amount')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         result_amounts = [Decimal(r['amount']) for r in response.data['results']]
         self.assertEqual(result_amounts, sorted(result_amounts, reverse=True))
@@ -929,8 +928,8 @@ class MultipleFilterPropertyTests(TestCase):
             name=f'Program-{test_id}',
             code=f'P{test_id}',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Create student
         student_user = User.objects.create_user(
@@ -980,7 +979,7 @@ class MultipleFilterPropertyTests(TestCase):
         client = APIClient()
         client.force_authenticate(user=accountant)
         response = client.get(
-            f'/api/finance/tuition-payments/?status={payment_status}'
+            f'/api/v1/finance/tuition-payments/?status={payment_status}'
             f'&payment_method={payment_method}'
         )
         

@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from drf_spectacular.utils import extend_schema_field
 from decimal import Decimal
 from .models import Course, Exam, Grade, CourseGrade, ReportCard
 
@@ -58,13 +59,13 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         model = Course
         fields = '__all__'
     
-    def get_exams_count(self, obj):
+    def get_exams_count(self, obj) -> int:
         return obj.exams.count()
     
-    def get_students_count(self, obj):
+    def get_students_count(self, obj) -> int:
         return obj.program.students.filter(status='ACTIVE').count()
     
-    def get_prerequisites_count(self, obj):
+    def get_prerequisites_count(self, obj) -> int:
         return obj.prerequisites.count()
 
 
@@ -159,7 +160,7 @@ class ExamDetailSerializer(serializers.ModelSerializer):
         model = Exam
         fields = '__all__'
     
-    def get_grades_count(self, obj):
+    def get_grades_count(self, obj) -> int:
         return obj.grades.count()
 
 
@@ -524,13 +525,13 @@ class ReportCardDetailSerializer(serializers.ModelSerializer):
             'is_published', 'published_at', 'generated_by', 'generated_at',
         ]
     
-    def get_course_grades_count(self, obj):
+    def get_course_grades_count(self, obj) -> int:
         return CourseGrade.objects.filter(
             student=obj.student,
             semester=obj.semester
         ).count()
 
-    def get_rank(self, obj):
+    def get_rank(self, obj) -> int:
         if obj.rank:
             return obj.rank
         
@@ -547,7 +548,8 @@ class ReportCardDetailSerializer(serializers.ModelSerializer):
             rank += 1
         return rank
 
-    def get_courses(self, obj):
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
+    def get_courses(self, obj) -> list[dict[str, object]]:
         course_grades = CourseGrade.objects.filter(
             student=obj.student,
             semester=obj.semester,

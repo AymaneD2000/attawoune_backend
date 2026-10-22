@@ -273,7 +273,7 @@ class StudentBalanceDetailSerializer(serializers.ModelSerializer):
         model = StudentBalance
         fields = '__all__'
     
-    def get_payments_count(self, obj):
+    def get_payments_count(self, obj) -> int:
         return obj.student.tuition_payments.filter(
             academic_year=obj.academic_year,
             status='COMPLETED'
@@ -523,7 +523,7 @@ class StudentDebtListSerializer(serializers.ModelSerializer):
             'recorded_by', 'created_at'
         ]
 
-    def get_academic_year_name(self, obj):
+    def get_academic_year_name(self, obj) -> str:
         return obj.academic_year.name if obj.academic_year else None
 
 

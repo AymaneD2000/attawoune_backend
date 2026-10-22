@@ -178,7 +178,7 @@ class StudentExcelService:
                         if not base or base == '.':
                             # Fallback for non-latin names: use row index
                             base = f"etudiant{row_idx}"
-                        
+
                         email = f"{base}@attawoune.edu"
                         # Make email unique
                         counter = 1
@@ -278,4 +278,3 @@ class StudentExcelService:
                 errors.append(f"Ligne {row_idx}: {str(e)}")
 
         return success_count, errors
-

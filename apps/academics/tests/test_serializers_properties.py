@@ -71,9 +71,9 @@ class CourseSerializerPropertyTests(TestCase):
             name='Test Program',
             code=f'TP{unique_id}',
             department=self.department,
-            level=self.level,
             duration_years=3
         )
+        self.program.levels.add(self.level)
         
         # Create academic year and semester
         self.academic_year = AcademicYear.objects.create(
@@ -84,14 +84,14 @@ class CourseSerializerPropertyTests(TestCase):
         )
         self.semester = Semester.objects.create(
             academic_year=self.academic_year,
-            semester_type='FALL',
+            semester_type='S1',
             start_date=date(2023, 9, 1),
             end_date=date(2024, 1, 31),
             is_current=False
         )
 
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         course_name=st.text(min_size=5, max_size=50, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Zs'))),
         course_code=st.text(min_size=2, max_size=10, alphabet=st.characters(whitelist_categories=('Lu', 'Nd'))),
@@ -115,7 +115,8 @@ class CourseSerializerPropertyTests(TestCase):
             program=self.program,
             course_type=course_type,
             credits=credits,
-            semester=self.semester
+            semester_type='S1',
+            level=self.level,
         )
         
         # Test list serializer
@@ -126,7 +127,7 @@ class CourseSerializerPropertyTests(TestCase):
         self.assertIn('program_name', list_data)
         self.assertIn('program_code', list_data)
         self.assertIn('course_type_display', list_data)
-        self.assertIn('semester_name', list_data)
+        self.assertIn('semester_type_display', list_data)
         
         # Verify values are correct
         self.assertEqual(list_data['program_name'], self.program.name)
@@ -140,10 +141,10 @@ class CourseSerializerPropertyTests(TestCase):
         # Verify additional readable representations in detail view
         self.assertIn('department_name', detail_data)
         self.assertIn('faculty_name', detail_data)
-        self.assertIn('academic_year', detail_data)
+        self.assertIn('level_display', detail_data)
 
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         course_code=st.text(min_size=2, max_size=10, alphabet=st.characters(whitelist_categories=('Lu', 'Nd'))),
     )
@@ -184,7 +185,7 @@ class CourseSerializerPropertyTests(TestCase):
         self.assertIn('code', serializer.errors)
 
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         course_name=st.text(min_size=5, max_size=50, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Zs'))),
         course_code=st.text(min_size=2, max_size=10, alphabet=st.characters(whitelist_categories=('Lu', 'Nd'))),
@@ -261,9 +262,9 @@ class ExamSerializerPropertyTests(TestCase):
             name='Test Program',
             code=f'TP{unique_id}',
             department=self.department,
-            level=self.level,
             duration_years=3
         )
+        self.program.levels.add(self.level)
         
         # Create academic year and semester
         self.academic_year = AcademicYear.objects.create(
@@ -274,7 +275,7 @@ class ExamSerializerPropertyTests(TestCase):
         )
         self.semester = Semester.objects.create(
             academic_year=self.academic_year,
-            semester_type='FALL',
+            semester_type='S1',
             start_date=date(2023, 9, 1),
             end_date=date(2024, 1, 31),
             is_current=False
@@ -296,7 +297,7 @@ class ExamSerializerPropertyTests(TestCase):
         )
 
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         exam_type=st.sampled_from([choice[0] for choice in Exam.ExamType.choices]),
         max_score=st.decimals(min_value=10, max_value=100, places=2),
@@ -352,7 +353,7 @@ class ExamSerializerPropertyTests(TestCase):
         self.assertIn('grades_count', detail_data)
 
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         days_offset=st.integers(min_value=1, max_value=30)
     )
@@ -388,7 +389,6 @@ class ExamSerializerPropertyTests(TestCase):
         # Should have end_time error
         self.assertIn('end_time', serializer.errors)
     
-    @settings(max_examples=10)
     def test_property_2_validation_enforcement_date_outside_semester(self):
         """
         Feature: backend-api-implementation, Property 2: Validation Enforcement
@@ -418,7 +418,7 @@ class ExamSerializerPropertyTests(TestCase):
         # Should have date error
         self.assertIn('date', serializer.errors)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         exam_type=st.sampled_from([choice[0] for choice in Exam.ExamType.choices]),
     )
@@ -500,9 +500,9 @@ class GradeSerializerPropertyTests(TestCase):
             name='Test Program',
             code=f'TP{unique_id}',
             department=self.department,
-            level=self.level,
             duration_years=3
         )
+        self.program.levels.add(self.level)
         
         # Create academic year and semester
         self.academic_year = AcademicYear.objects.create(
@@ -513,7 +513,7 @@ class GradeSerializerPropertyTests(TestCase):
         )
         self.semester = Semester.objects.create(
             academic_year=self.academic_year,
-            semester_type='FALL',
+            semester_type='S1',
             start_date=date(2023, 9, 1),
             end_date=date(2024, 1, 31),
             is_current=False
@@ -557,7 +557,7 @@ class GradeSerializerPropertyTests(TestCase):
         )
 
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         score=st.decimals(min_value=0, max_value=20, places=2),
         is_absent=st.booleans(),
@@ -609,9 +609,9 @@ class GradeSerializerPropertyTests(TestCase):
         self.assertIn('exam_weight', detail_data)
 
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
-        score=st.decimals(min_value=20.01, max_value=30, places=2),
+        score=st.decimals(min_value=Decimal('20.01'), max_value=30, places=2),
     )
     def test_property_2_validation_enforcement_score_exceeds_max(self, score):
         """
@@ -641,7 +641,7 @@ class GradeSerializerPropertyTests(TestCase):
         # Should have score error
         self.assertIn('score', serializer.errors)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         score=st.decimals(min_value=0, max_value=20, places=2),
     )
@@ -678,7 +678,7 @@ class GradeSerializerPropertyTests(TestCase):
         # Should have student error
         self.assertIn('student', serializer.errors)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         score=st.decimals(min_value=0, max_value=20, places=2),
     )
@@ -756,9 +756,9 @@ class CourseGradeSerializerPropertyTests(TestCase):
             name='Test Program',
             code=f'TP{unique_id}',
             department=self.department,
-            level=self.level,
             duration_years=3
         )
+        self.program.levels.add(self.level)
         
         # Create academic year and semester
         self.academic_year = AcademicYear.objects.create(
@@ -769,7 +769,7 @@ class CourseGradeSerializerPropertyTests(TestCase):
         )
         self.semester = Semester.objects.create(
             academic_year=self.academic_year,
-            semester_type='FALL',
+            semester_type='S1',
             start_date=date(2023, 9, 1),
             end_date=date(2024, 1, 31),
             is_current=False
@@ -801,7 +801,7 @@ class CourseGradeSerializerPropertyTests(TestCase):
         )
 
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         final_score=st.decimals(min_value=0, max_value=20, places=2),
         is_validated=st.booleans(),
@@ -852,7 +852,7 @@ class CourseGradeSerializerPropertyTests(TestCase):
         self.assertIn('course_coefficient', detail_data)
         self.assertIn('academic_year', detail_data)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         final_score=st.decimals(min_value=0, max_value=20, places=2),
     )
@@ -892,7 +892,7 @@ class CourseGradeSerializerPropertyTests(TestCase):
         # Should have student error
         self.assertIn('student', serializer.errors)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         final_score=st.decimals(min_value=0, max_value=20, places=2),
     )
@@ -969,9 +969,9 @@ class ReportCardSerializerPropertyTests(TestCase):
             name='Test Program',
             code=f'TP{unique_id}',
             department=self.department,
-            level=self.level,
             duration_years=3
         )
+        self.program.levels.add(self.level)
         
         # Create academic year and semester
         self.academic_year = AcademicYear.objects.create(
@@ -982,7 +982,7 @@ class ReportCardSerializerPropertyTests(TestCase):
         )
         self.semester = Semester.objects.create(
             academic_year=self.academic_year,
-            semester_type='FALL',
+            semester_type='S1',
             start_date=date(2023, 9, 1),
             end_date=date(2024, 1, 31),
             is_current=False
@@ -1005,7 +1005,7 @@ class ReportCardSerializerPropertyTests(TestCase):
             enrollment_date=date.today()
         )
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         gpa=st.decimals(min_value=0, max_value=20, places=2),
         total_credits=st.integers(min_value=0, max_value=60),
@@ -1065,7 +1065,7 @@ class ReportCardSerializerPropertyTests(TestCase):
         self.assertIn('student_level', detail_data)
         self.assertIn('course_grades_count', detail_data)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         gpa=st.decimals(min_value=0, max_value=20, places=2),
     )

@@ -10,7 +10,8 @@ venv/
 .hypothesis/
 media/
 static/
-staticfiles/
+staticfiles/*
+!staticfiles/.gitkeep
 .pytest_cache/
 backups/
 .env.backup

@@ -9,6 +9,7 @@ This module tests the viewset functionality including:
 
 from django.test import TestCase
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework import status
 from apps.university.models import AcademicYear, Semester, Faculty, Department, Program, Level, Classroom
@@ -72,18 +73,15 @@ class ScheduleViewSetTestCase(TestCase):
             faculty=self.faculty
         )
         
-        self.level = Level.objects.create(
-            name='L1',
-            order=1
-        )
+        self.level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         
         self.program = Program.objects.create(
             name='Licence Informatique',
             code='LINF',
             department=self.department,
-            level=self.level,
             duration_years=3
         )
+        self.program.levels.add(self.level)
         
         # Create classroom
         self.classroom = Classroom.objects.create(
@@ -117,7 +115,8 @@ class ScheduleViewSetTestCase(TestCase):
             name='Programmation Python',
             code='INF101',
             program=self.program,
-            semester=self.semester,
+            semester_type='S1',
+            level=self.level,
             credits=6,
             hours_lecture=24,
             hours_practical=24
@@ -280,7 +279,7 @@ class AnnouncementViewSetTestCase(TestCase):
             target_audience='ALL',
             is_published=True,
             created_by=self.admin_user,
-            publish_date=date.today()
+            publish_date=timezone.now()
         )
         
         self.client = APIClient()
@@ -308,7 +307,7 @@ class AnnouncementViewSetTestCase(TestCase):
             'announcement_type': 'ACADEMIC',
             'target_audience': 'STUDENTS',
             'is_published': True,
-            'publish_date': date.today().isoformat()
+            'publish_date': timezone.now().isoformat()
         }
         response = self.client.post('/api/v1/scheduling/announcements/', data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -322,7 +321,7 @@ class AnnouncementViewSetTestCase(TestCase):
             'announcement_type': 'FINANCIAL',
             'target_audience': 'ALL',
             'is_published': False,
-            'publish_date': date.today().isoformat()
+            'publish_date': timezone.now().isoformat()
         }
         response = self.client.post('/api/v1/scheduling/announcements/', data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)

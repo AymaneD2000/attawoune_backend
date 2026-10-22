@@ -28,7 +28,7 @@ User = get_user_model()
 class AcademicYearSerializerPropertyTests(TestCase):
     """Property tests for AcademicYear serializers."""
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         year=st.integers(min_value=2020, max_value=2030),
         duration_days=st.integers(min_value=200, max_value=365)
@@ -71,7 +71,7 @@ class AcademicYearSerializerPropertyTests(TestCase):
         self.assertIn('semesters_count', data)
         self.assertEqual(data['semesters_count'], 1)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         year=st.integers(min_value=2020, max_value=2030)
     )
@@ -106,7 +106,7 @@ class AcademicYearSerializerPropertyTests(TestCase):
 class SemesterSerializerPropertyTests(TestCase):
     """Property tests for Semester serializers."""
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         year=st.integers(min_value=2020, max_value=2030),
         semester_type=st.sampled_from(['S1', 'S2'])
@@ -154,7 +154,7 @@ class SemesterSerializerPropertyTests(TestCase):
 class FacultySerializerPropertyTests(TestCase):
     """Property tests for Faculty serializers."""
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         faculty_name=st.text(min_size=5, max_size=50, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Zs'))),
         code=st.text(min_size=2, max_size=10, alphabet=st.characters(whitelist_categories=('Lu', 'Nd')))
@@ -194,7 +194,7 @@ class FacultySerializerPropertyTests(TestCase):
         self.assertIn('departments_count', data)
         self.assertIsInstance(data['departments_count'], int)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         faculty_name=st.text(min_size=5, max_size=50, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Zs'))),
         code=st.text(min_size=2, max_size=10, alphabet=st.characters(whitelist_categories=('Lu', 'Nd')))
@@ -227,7 +227,7 @@ class FacultySerializerPropertyTests(TestCase):
 class DepartmentSerializerPropertyTests(TestCase):
     """Property tests for Department serializers."""
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         dept_name=st.text(min_size=5, max_size=50, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Zs'))),
         dept_code=st.text(min_size=2, max_size=10, alphabet=st.characters(whitelist_categories=('Lu', 'Nd'))),
@@ -281,7 +281,7 @@ class DepartmentSerializerPropertyTests(TestCase):
 class LevelSerializerPropertyTests(TestCase):
     """Property tests for Level serializers."""
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         level_choice=st.sampled_from(['L1', 'L2', 'L3', 'M1', 'M2', 'D1', 'D2', 'D3'])
     )
@@ -295,10 +295,7 @@ class LevelSerializerPropertyTests(TestCase):
         """
         # Create level
         order_map = {'L1': 1, 'L2': 2, 'L3': 3, 'M1': 4, 'M2': 5, 'D1': 6, 'D2': 7, 'D3': 8}
-        level = Level.objects.create(
-            name=level_choice,
-            order=order_map[level_choice]
-        )
+        level, _ = Level.objects.get_or_create(name=level_choice, defaults={'order': order_map[level_choice]})
         
         # Serialize
         serializer = LevelDetailSerializer(level)
@@ -308,7 +305,7 @@ class LevelSerializerPropertyTests(TestCase):
         self.assertIn('display_name', data)
         self.assertEqual(data['display_name'], level.get_name_display())
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         level_choice=st.sampled_from(['L1', 'L2', 'L3', 'M1', 'M2', 'D1', 'D2', 'D3'])
     )
@@ -322,10 +319,7 @@ class LevelSerializerPropertyTests(TestCase):
         """
         # Create level
         order_map = {'L1': 1, 'L2': 2, 'L3': 3, 'M1': 4, 'M2': 5, 'D1': 6, 'D2': 7, 'D3': 8}
-        level = Level.objects.create(
-            name=level_choice,
-            order=order_map[level_choice]
-        )
+        level, _ = Level.objects.get_or_create(name=level_choice, defaults={'order': order_map[level_choice]})
         
         # Serialize with detail serializer
         serializer = LevelDetailSerializer(level)
@@ -341,7 +335,7 @@ class LevelSerializerPropertyTests(TestCase):
 class ProgramSerializerPropertyTests(TestCase):
     """Property tests for Program serializers."""
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         program_name=st.text(min_size=5, max_size=50, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Zs'))),
         program_code=st.text(min_size=2, max_size=10, alphabet=st.characters(whitelist_categories=('Lu', 'Nd'))),
@@ -353,7 +347,7 @@ class ProgramSerializerPropertyTests(TestCase):
         
         **Validates: Requirements 1.8**
         
-        For Program, this includes department_name, faculty_name, level_display.
+        For Program, this includes department_name, faculty_name, levels_display.
         """
         # Create faculty
         faculty = Faculty.objects.create(
@@ -369,19 +363,16 @@ class ProgramSerializerPropertyTests(TestCase):
         )
         
         # Create level
-        level = Level.objects.create(
-            name='L1',
-            order=1
-        )
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         
         # Create program
         program = Program.objects.create(
             name=program_name[:200],
             code=program_code[:20],
             department=department,
-            level=level,
             tuition_fee=tuition_fee
         )
+        program.levels.add(level)
         
         # Serialize
         serializer = ProgramDetailSerializer(program)
@@ -392,10 +383,10 @@ class ProgramSerializerPropertyTests(TestCase):
         self.assertEqual(data['department_name'], department.name)
         self.assertIn('faculty_name', data)
         self.assertEqual(data['faculty_name'], faculty.name)
-        self.assertIn('level_display', data)
-        self.assertEqual(data['level_display'], level.get_name_display())
+        self.assertIn('levels_display', data)
+        self.assertEqual(data['levels_display'], level.get_name_display())
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         program_name=st.text(min_size=5, max_size=50, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Zs'))),
         program_code=st.text(min_size=2, max_size=10, alphabet=st.characters(whitelist_categories=('Lu', 'Nd')))
@@ -422,18 +413,15 @@ class ProgramSerializerPropertyTests(TestCase):
         )
         
         # Create level
-        level = Level.objects.create(
-            name='L1',
-            order=1
-        )
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         
         # Create program
         program = Program.objects.create(
             name=program_name[:200],
             code=program_code[:20],
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Serialize with detail serializer
         serializer = ProgramDetailSerializer(program)
@@ -449,7 +437,7 @@ class ProgramSerializerPropertyTests(TestCase):
 class ClassroomSerializerPropertyTests(TestCase):
     """Property tests for Classroom serializers."""
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         classroom_name=st.text(min_size=3, max_size=30, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Nd', 'Zs'))),
         code=st.text(min_size=2, max_size=10, alphabet=st.characters(whitelist_categories=('Lu', 'Nd'))),

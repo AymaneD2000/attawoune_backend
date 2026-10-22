@@ -10,7 +10,7 @@ from apps.university.models import AcademicYear, Program, Level
 
 def run():
     print("Fixing student enrollments...")
-    
+
     # Get current academic year
     try:
         current_year = AcademicYear.objects.get(is_current=True)
@@ -22,7 +22,7 @@ def run():
     # Get all students
     students = Student.objects.all()
     print(f"Total students: {students.count()}")
-    
+
     # Enroll first 50 students in current year
     count = 0
     for student in students[:50]:
@@ -37,7 +37,7 @@ def run():
                 is_active=True
             )
             count += 1
-            
+
     print(f"Enrolled {count} students in {current_year}")
 
 if __name__ == '__main__':

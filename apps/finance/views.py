@@ -9,12 +9,14 @@ This module provides ViewSets for managing financial operations:
 - Expense: University expenses
 """
 
-from rest_framework import viewsets, filters, status
+from rest_framework import viewsets, filters, serializers, status
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from django.db import transaction
 from django.db.models import Count, Sum, F, Q
 from django.db.models.functions import TruncMonth
@@ -46,33 +48,33 @@ from django.http import HttpResponse
 class TuitionPaymentViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing tuition payments.
-    
+
     Provides:
     - List: GET /api/v1/tuition-payments/
     - Create: POST /api/v1/tuition-payments/
     - Retrieve: GET /api/v1/tuition-payments/{id}/
     - Update: PUT/PATCH /api/v1/tuition-payments/{id}/
     - Delete: DELETE /api/v1/tuition-payments/{id}/
-    
+
     Custom Actions:
     - by_student: GET /api/v1/tuition-payments/by_student/?student_id=X
-    
+
     Permissions:
     - All operations: Accountant and Admin only
-    
+
     Filtering:
     - student: Filter by student
     - academic_year: Filter by academic year
     - payment_method: Filter by payment method (CASH, BANK_TRANSFER, MOBILE_MONEY, CHECK)
     - status: Filter by status (PENDING, COMPLETED, FAILED, REFUNDED)
-    
+
     Searching:
     - reference, receipt_number, student name
-    
+
     Ordering:
     - payment_date, amount, created_at
     """
-    
+
     queryset = TuitionPayment.objects.select_related(
         'student', 'student__user', 'student__program',
         'academic_year', 'received_by'
@@ -81,16 +83,16 @@ class TuitionPaymentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filter by current academic year by default."""
         queryset = super().get_queryset()
-        
+
         # Filter by current academic year if requested (default True)
         current_year_only = self.request.query_params.get('current_year_only', 'true').lower() == 'true'
-        
+
         if current_year_only and 'academic_year' not in self.request.query_params:
             from apps.university.models import AcademicYear
             current_year = AcademicYear.objects.filter(is_current=True).first()
             if current_year:
                 queryset = queryset.filter(academic_year=current_year)
-        
+
         return queryset
 
     permission_classes = [IsAuthenticated, IsFinanceViewer]
@@ -99,7 +101,7 @@ class TuitionPaymentViewSet(viewsets.ModelViewSet):
     search_fields = ['reference', 'receipt_number', 'student__user__first_name', 'student__user__last_name', 'student__student_id']
     ordering_fields = ['payment_date', 'amount', 'created_at']
     ordering = ['-created_at']
-    
+
     def get_serializer_class(self):
         """Return appropriate serializer based on action."""
         if self.action == 'list':
@@ -109,13 +111,13 @@ class TuitionPaymentViewSet(viewsets.ModelViewSet):
         elif self.action in ['create', 'update', 'partial_update']:
             return TuitionPaymentCreateSerializer
         return TuitionPaymentSerializer
-    
+
     def _generate_reference(self):
         """Generate unique payment reference."""
         timestamp = timezone.now().strftime('%Y%m%d%H%M%S')
         unique_id = uuid.uuid4().hex[:6].upper()
         return f"PAY-{timestamp}-{unique_id}"
-    
+
     @transaction.atomic
     def perform_create(self, serializer):
         """
@@ -129,12 +131,12 @@ class TuitionPaymentViewSet(viewsets.ModelViewSet):
         if amount <= 0:
             from rest_framework.exceptions import ValidationError
             raise ValidationError({"amount": "Le montant doit être positif."})
-        
+
         # Generate reference if not provided
         reference = serializer.validated_data.get('reference')
         if not reference:
             reference = self._generate_reference()
-            
+
         # Default payment_date to today if not provided
         payment_date = serializer.validated_data.get('payment_date')
         if not payment_date:
@@ -148,7 +150,7 @@ class TuitionPaymentViewSet(viewsets.ModelViewSet):
                  # Fallback to latest? Or error?
                  # Better to error if no current year exists, but let's try latest
                  academic_year = AcademicYear.objects.order_by('-start_date').first()
-            
+
             if not academic_year:
                  from rest_framework.exceptions import ValidationError
                  raise ValidationError({"academic_year": "Aucune année académique active trouvée."})
@@ -187,45 +189,45 @@ class TuitionPaymentViewSet(viewsets.ModelViewSet):
                 {"error": "Le paiement n'est pas en attente"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         payment.status = 'COMPLETED'
         if not payment.payment_date:
             payment.payment_date = timezone.now().date()
         payment.save()
-        
+
         reconcile_student_balance(payment.student, payment.academic_year)
         return Response({"status": "approved", "message": "Paiement validé avec succès"})
-    
+
     @action(detail=False, methods=['get'])
     def by_student(self, request):
         """
         Get all payments for a specific student.
-        
+
         Query parameters:
         - student_id: Student ID (required)
         - academic_year_id: Filter by academic year (optional)
         """
         student_id = request.query_params.get('student_id')
-        
+
         if not student_id:
             return Response(
                 {"error": "student_id est requis"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         payments = self.queryset.filter(student_id=student_id)
-        
+
         academic_year_id = request.query_params.get('academic_year_id')
         if academic_year_id:
             payments = payments.filter(academic_year_id=academic_year_id)
-        
+
         payments = payments.order_by('-payment_date')
-        
+
         serializer = TuitionPaymentListSerializer(payments, many=True)
         total_paid = payments.filter(status='COMPLETED').aggregate(
             total=Sum('amount')
         )['total'] or 0
-        
+
         return Response({
             'count': payments.count(),
             'total_paid': total_paid,
@@ -278,28 +280,28 @@ class TuitionPaymentViewSet(viewsets.ModelViewSet):
 class TuitionFeeViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing tuition fees.
-    
+
     Provides:
     - List: GET /api/v1/tuition-fees/
     - Create: POST /api/v1/tuition-fees/
     - Retrieve: GET /api/v1/tuition-fees/{id}/
     - Update: PUT/PATCH /api/v1/tuition-fees/{id}/
     - Delete: DELETE /api/v1/tuition-fees/{id}/
-    
+
     Permissions:
     - All operations: Accountant and Admin only
-    
+
     Filtering:
     - program: Filter by program
     - academic_year: Filter by academic year
-    
+
     Searching:
     - program name, program code
-    
+
     Ordering:
     - amount, due_date, created_at
     """
-    
+
     queryset = TuitionFee.objects.select_related(
         'program', 'program__department', 'program__department__faculty',
         'academic_year'
@@ -308,7 +310,7 @@ class TuitionFeeViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filter by current academic year by default."""
         queryset = super().get_queryset()
-        
+
         # Filter by current academic year if requested (default True)
         current_year_only = self.request.query_params.get('current_year_only', 'true').lower() == 'true'
 
@@ -325,7 +327,7 @@ class TuitionFeeViewSet(viewsets.ModelViewSet):
     search_fields = ['program__name', 'program__code']
     ordering_fields = ['amount', 'due_date']
     ordering = ['academic_year', 'program']
-    
+
     def get_serializer_class(self):
         """Return appropriate serializer based on action."""
         if self.action == 'list':
@@ -340,32 +342,32 @@ class TuitionFeeViewSet(viewsets.ModelViewSet):
 class StudentBalanceViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing student balances.
-    
+
     Provides:
     - List: GET /api/v1/student-balances/
     - Create: POST /api/v1/student-balances/
     - Retrieve: GET /api/v1/student-balances/{id}/
     - Update: PUT/PATCH /api/v1/student-balances/{id}/
     - Delete: DELETE /api/v1/student-balances/{id}/
-    
+
     Custom Actions:
     - outstanding: GET /api/v1/student-balances/outstanding/
     - recalculate: POST /api/v1/student-balances/{id}/recalculate/
-    
+
     Permissions:
     - All operations: Accountant and Admin only
-    
+
     Filtering:
     - student: Filter by student
     - academic_year: Filter by academic year
-    
+
     Searching:
     - student name, student ID
-    
+
     Ordering:
     - total_due, total_paid, updated_at
     """
-    
+
     queryset = StudentBalance.objects.select_related(
         'student', 'student__user', 'student__program',
         'academic_year'
@@ -374,7 +376,7 @@ class StudentBalanceViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filter by current academic year by default."""
         queryset = super().get_queryset()
-        
+
         # Filter by current academic year if requested (default True)
         current_year_only = self.request.query_params.get('current_year_only', 'true').lower() == 'true'
 
@@ -391,7 +393,7 @@ class StudentBalanceViewSet(viewsets.ModelViewSet):
     search_fields = ['student__user__first_name', 'student__user__last_name', 'student__student_id']
     ordering_fields = ['total_due', 'total_paid', 'updated_at']
     ordering = ['-updated_at']
-    
+
     def get_serializer_class(self):
         """Return appropriate serializer based on action."""
         if self.action in ['list', 'outstanding']:
@@ -404,33 +406,33 @@ class StudentBalanceViewSet(viewsets.ModelViewSet):
     def outstanding(self, request):
         """
         Get all students with outstanding (unpaid) balances.
-        
+
         Query parameters:
         - academic_year_id: Filter by academic year (optional)
         - min_balance: Minimum outstanding balance to include (optional)
-        
+
         Returns students where total_paid < total_due.
         """
         # Annotate with computed balance field for filtering/ordering
         queryset = self.get_queryset().annotate(
             computed_balance=F('total_due') - F('total_paid')
         ).filter(computed_balance__gt=0)
-        
+
         academic_year_id = request.query_params.get('academic_year_id')
         if academic_year_id:
             queryset = queryset.filter(academic_year_id=academic_year_id)
-        
+
         min_balance = request.query_params.get('min_balance')
         if min_balance:
             try:
                 queryset = queryset.filter(computed_balance__gte=float(min_balance))
             except ValueError:
                 pass
-        
+
         queryset = queryset.order_by('-computed_balance')
-        
+
         total_outstanding = queryset.aggregate(total=Sum('computed_balance'))['total'] or 0
-        
+
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = StudentBalanceListSerializer(page, many=True)
@@ -450,14 +452,14 @@ class StudentBalanceViewSet(viewsets.ModelViewSet):
     def recalculate(self, request, pk=None):
         """
         Recalculate student balance based on payments.
-        
+
         Updates total_paid from all completed payments.
         """
         balance = self.get_object()
-        
+
         balance = reconcile_student_balance(balance.student, balance.academic_year)
         serializer = StudentBalanceDetailSerializer(balance)
-        
+
         return Response({
             "message": "Solde recalculé avec succès",
             "balance": serializer.data
@@ -467,33 +469,33 @@ class StudentBalanceViewSet(viewsets.ModelViewSet):
     def statement(self, request):
         """
         Get financial statement for a student.
-        
+
         Query parameters:
         - student_id: Student ID (required)
         - academic_year_id: Academic Year ID (optional)
         """
         student_id = request.query_params.get('student_id')
         academic_year_id = request.query_params.get('academic_year_id')
-        
+
         if not student_id:
             return Response({'error': 'student_id est requis'}, status=status.HTTP_400_BAD_REQUEST)
-            
+
         from apps.students.models import Student
         from apps.finance.services.reporting import FinancialReportService
         from apps.university.models import AcademicYear
-        
+
         try:
             student = Student.objects.get(pk=student_id)
         except Student.DoesNotExist:
             return Response({'error': 'Étudiant introuvable'}, status=status.HTTP_404_NOT_FOUND)
-            
+
         academic_year = None
         if academic_year_id:
             try:
                 academic_year = AcademicYear.objects.get(pk=academic_year_id)
             except AcademicYear.DoesNotExist:
                 return Response({'error': 'Année académique introuvable'}, status=status.HTTP_404_NOT_FOUND)
-                
+
         statement = FinancialReportService.generate_statement(student, academic_year)
         return Response(statement)
 
@@ -505,34 +507,34 @@ class StudentBalanceViewSet(viewsets.ModelViewSet):
         """
         student_id = request.query_params.get('student_id')
         academic_year_id = request.query_params.get('academic_year_id')
-        
+
         if not student_id:
             return Response({'error': 'student_id est requis'}, status=status.HTTP_400_BAD_REQUEST)
-            
+
         from apps.students.models import Student
         from apps.finance.services.reporting import FinancialReportService
         from apps.university.models import AcademicYear
         from apps.core.services.pdf import PDFService
         from django.http import HttpResponse
-        
+
         try:
             student = Student.objects.get(pk=student_id)
         except Student.DoesNotExist:
             return Response({'error': 'Étudiant introuvable'}, status=status.HTTP_404_NOT_FOUND)
-            
+
         academic_year = None
         if academic_year_id:
             try:
                 academic_year = AcademicYear.objects.get(pk=academic_year_id)
             except AcademicYear.DoesNotExist:
                 return Response({'error': 'Année académique introuvable'}, status=status.HTTP_404_NOT_FOUND)
-                
+
         # Generate statement data
         statement_data = FinancialReportService.generate_statement(student, academic_year)
-        
+
         # Generate PDF
         buffer = PDFService.generate_financial_statement(statement_data)
-        
+
         filename = f"Releve_Financier_{student.student_id}.pdf"
         response = HttpResponse(buffer, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
@@ -636,6 +638,13 @@ class StudentDebtViewSet(viewsets.ModelViewSet):
             'debt': StudentDebtDetailSerializer(debt).data,
         }, status=status.HTTP_201_CREATED)
 
+    @extend_schema(parameters=[
+        OpenApiParameter(
+            name='payment_id',
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.PATH,
+        )
+    ])
     @action(detail=True, methods=['delete'], url_path=r'payments/(?P<payment_id>[^/.]+)')
     def delete_payment(self, request, pk=None, payment_id=None):
         """Remove a payment record and reduce the debt's paid amount accordingly."""
@@ -662,34 +671,34 @@ class StudentDebtViewSet(viewsets.ModelViewSet):
 class SalaryViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing employee salaries.
-    
+
     Provides:
     - List: GET /api/v1/salaries/
     - Create: POST /api/v1/salaries/
     - Retrieve: GET /api/v1/salaries/{id}/
     - Update: PUT/PATCH /api/v1/salaries/{id}/
     - Delete: DELETE /api/v1/salaries/{id}/
-    
+
     Custom Actions:
     - pay: POST /api/v1/salaries/{id}/pay/
     - pending: GET /api/v1/salaries/pending/
-    
+
     Permissions:
     - All operations: Accountant and Admin only
-    
+
     Filtering:
     - employee: Filter by employee
     - month: Filter by month (1-12)
     - year: Filter by year
     - status: Filter by status (PENDING, PAID, CANCELLED)
-    
+
     Searching:
     - employee name, employee email
-    
+
     Ordering:
     - year, month, net_salary, created_at
     """
-    
+
     queryset = Salary.objects.select_related(
         'employee', 'processed_by'
     ).all()
@@ -697,7 +706,7 @@ class SalaryViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filter by current academic year date range by default."""
         queryset = super().get_queryset()
-        
+
         # If explicit year/month filter, don't override
         if 'year' in self.request.query_params or 'month' in self.request.query_params:
             return queryset
@@ -708,17 +717,17 @@ class SalaryViewSet(viewsets.ModelViewSet):
         if current_year_only:
             from apps.university.models import AcademicYear
             current_year = AcademicYear.objects.filter(is_current=True).first()
-            
+
             if current_year:
                 start = current_year.start_date
                 end = current_year.end_date
-                
+
                 queryset = queryset.filter(
                     Q(year__gt=start.year) | Q(year=start.year, month__gte=start.month)
                 ).filter(
                     Q(year__lt=end.year) | Q(year=end.year, month__lte=end.month)
                 )
-            
+
         return queryset
 
     permission_classes = [IsAuthenticated, IsFinanceViewer]
@@ -727,7 +736,7 @@ class SalaryViewSet(viewsets.ModelViewSet):
     search_fields = ['employee__first_name', 'employee__last_name', 'employee__email']
     ordering_fields = ['year', 'month', 'net_salary', 'created_at']
     ordering = ['-year', '-month']
-    
+
     def get_serializer_class(self):
         """Return appropriate serializer based on action."""
         if self.action == 'list':
@@ -737,7 +746,7 @@ class SalaryViewSet(viewsets.ModelViewSet):
         elif self.action in ['create', 'update', 'partial_update']:
             return SalaryCreateSerializer
         return SalarySerializer
-    
+
     def perform_create(self, serializer):
         """
         Set processed_by to current user on creation.
@@ -748,14 +757,14 @@ class SalaryViewSet(viewsets.ModelViewSet):
         employee = validated_data['employee']
         month = validated_data['month']
         year = validated_data['year']
-        
+
         # Check for duplicate
         existing = Salary.objects.filter(
             employee=employee,
             month=month,
             year=year
         ).exists()
-        
+
         if existing:
             from rest_framework.exceptions import ValidationError
             raise ValidationError({
@@ -763,13 +772,13 @@ class SalaryViewSet(viewsets.ModelViewSet):
                     f"Un enregistrement de salaire existe déjà pour cet employé en {month}/{year}"
                 ]
             })
-        
+
         # Calculate net salary
         base_salary = validated_data.get('base_salary', 0)
         bonuses = validated_data.get('bonuses', 0)
         deductions = validated_data.get('deductions', 0)
         net_salary = base_salary + bonuses - deductions
-        
+
         serializer.save(
             processed_by=self.request.user,
             net_salary=net_salary
@@ -779,27 +788,27 @@ class SalaryViewSet(viewsets.ModelViewSet):
     def pay(self, request, pk=None):
         """
         Mark a salary as paid.
-        
+
         Updates status to PAID and records payment date.
         """
         salary = self.get_object()
-        
+
         if salary.status == 'PAID':
             return Response(
                 {"message": "Ce salaire est déjà payé"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         if salary.status == 'CANCELLED':
             return Response(
                 {"error": "Impossible de payer un salaire annulé"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         salary.status = 'PAID'
         salary.payment_date = timezone.now().date()
         salary.save()
-        
+
         serializer = SalaryDetailSerializer(salary)
         return Response({
             "message": "Salaire marqué comme payé",
@@ -810,31 +819,31 @@ class SalaryViewSet(viewsets.ModelViewSet):
     def pending(self, request):
         """
         Get all pending salary payments.
-        
+
         Query parameters:
         - month: Filter by month (optional)
         - year: Filter by year (optional)
-        
+
         Returns all salaries with PENDING status.
         """
         queryset = self.queryset.filter(status='PENDING')
-        
+
         month = request.query_params.get('month')
         if month:
             try:
                 queryset = queryset.filter(month=int(month))
             except ValueError:
                 pass
-        
+
         year = request.query_params.get('year')
         if year:
             try:
                 queryset = queryset.filter(year=int(year))
             except ValueError:
                 pass
-        
+
         total_pending = queryset.aggregate(total=Sum('net_salary'))['total'] or 0
-        
+
         serializer = SalaryListSerializer(queryset, many=True)
         return Response({
             'count': queryset.count(),
@@ -884,32 +893,32 @@ class SalaryViewSet(viewsets.ModelViewSet):
 class ExpenseViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing university expenses.
-    
+
     Provides:
     - List: GET /api/v1/expenses/
     - Create: POST /api/v1/expenses/
     - Retrieve: GET /api/v1/expenses/{id}/
     - Update: PUT/PATCH /api/v1/expenses/{id}/
     - Delete: DELETE /api/v1/expenses/{id}/
-    
+
     Custom Actions:
     - summary: GET /api/v1/expenses/summary/
-    
+
     Permissions:
     - All operations: Accountant and Admin only
-    
+
     Filtering:
     - category: Filter by category (SALARIES, UTILITIES, MAINTENANCE, EQUIPMENT, SUPPLIES, OTHER)
     - approved_by: Filter by approver
     - created_by: Filter by creator
-    
+
     Searching:
     - description, category
-    
+
     Ordering:
     - date, amount, created_at
     """
-    
+
     queryset = Expense.objects.select_related(
         'approved_by', 'created_by'
     ).all()
@@ -917,7 +926,7 @@ class ExpenseViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filter by current academic year date range by default."""
         queryset = super().get_queryset()
-        
+
         # If explicit date filter, don't override strongly (or intersect? let's user decide)
         # Assuming if user didn't request specific range, they want current year context
         if 'start_date' in self.request.query_params or 'end_date' in self.request.query_params:
@@ -931,7 +940,7 @@ class ExpenseViewSet(viewsets.ModelViewSet):
             current_year = AcademicYear.objects.filter(is_current=True).first()
             if current_year:
                 queryset = queryset.filter(date__range=(current_year.start_date, current_year.end_date))
-            
+
         return queryset
 
     permission_classes = [IsAuthenticated, IsFinanceViewer]
@@ -940,7 +949,7 @@ class ExpenseViewSet(viewsets.ModelViewSet):
     search_fields = ['description', 'category']
     ordering_fields = ['date', 'amount', 'created_at']
     ordering = ['-date']
-    
+
     def get_serializer_class(self):
         """Return appropriate serializer based on action."""
         if self.action == 'list':
@@ -950,7 +959,7 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         elif self.action in ['create', 'update', 'partial_update']:
             return ExpenseCreateSerializer
         return ExpenseSerializer
-    
+
     def perform_create(self, serializer):
         """Set created_by to current user on creation."""
         serializer.save(created_by=self.request.user)
@@ -959,33 +968,33 @@ class ExpenseViewSet(viewsets.ModelViewSet):
     def summary(self, request):
         """
         Get expense summary by category.
-        
+
         Query parameters:
         - start_date: Filter from date (YYYY-MM-DD)
         - end_date: Filter to date (YYYY-MM-DD)
-        
+
         Returns total expenses grouped by category.
         """
         from django.db.models import Count
-        
+
         queryset = self.queryset
-        
+
         start_date = request.query_params.get('start_date')
         if start_date:
             queryset = queryset.filter(date__gte=start_date)
-        
+
         end_date = request.query_params.get('end_date')
         if end_date:
             queryset = queryset.filter(date__lte=end_date)
-        
+
         # Group by category
         summary = queryset.values('category').annotate(
             count=Count('id'),
             total_amount=Sum('amount')
         ).order_by('-total_amount')
-        
+
         total = queryset.aggregate(total=Sum('amount'))['total'] or 0
-        
+
         return Response({
             'total_expenses': total,
             'by_category': list(summary)
@@ -1033,10 +1042,10 @@ class ExpenseViewSet(viewsets.ModelViewSet):
 class FinanceDashboardView(APIView):
     """
     Dashboard for financial overview.
-    
+
     Provides:
     - GET /api/v1/finance/dashboard/
-    
+
     Returns:
     - current_year: Current academic year name
     - total_tuition_collected: Total tuition payments collected
@@ -1045,12 +1054,32 @@ class FinanceDashboardView(APIView):
     - pending_payments_count: Number of pending payments
     - outstanding_balances: Total outstanding student balances
     - net_balance: Net financial balance
-    
+
     Permissions:
     - Accountant and Admin only
     """
     permission_classes = [IsAuthenticated, IsFinanceViewer]
 
+    @extend_schema(
+        responses=inline_serializer(
+            name='FinanceDashboardResponse',
+            fields={
+                'current_year': serializers.CharField(),
+                'total_tuition_collected': serializers.DecimalField(max_digits=14, decimal_places=2),
+                'total_salaries_paid': serializers.DecimalField(max_digits=14, decimal_places=2),
+                'total_expenses': serializers.DecimalField(max_digits=14, decimal_places=2),
+                'pending_payments_count': serializers.IntegerField(),
+                'outstanding_balances': serializers.DecimalField(max_digits=14, decimal_places=2),
+                'net_balance': serializers.DecimalField(max_digits=14, decimal_places=2),
+                'expected_revenue': serializers.DecimalField(max_digits=14, decimal_places=2),
+                'collection_rate': serializers.FloatField(),
+                'monthly_cash_flow': serializers.ListField(child=serializers.DictField()),
+                'expense_categories': serializers.ListField(child=serializers.DictField()),
+                'payment_methods': serializers.ListField(child=serializers.DictField()),
+                'payment_statuses': serializers.ListField(child=serializers.DictField()),
+            },
+        )
+    )
     def get(self, request):
         from apps.university.models import AcademicYear
 
@@ -1081,7 +1110,7 @@ class FinanceDashboardView(APIView):
             academic_year=current_year,
             status='PENDING'
         ).count()
-        
+
         # Outstanding balances
         outstanding = StudentBalance.objects.filter(
             academic_year=current_year

@@ -7,7 +7,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         self.stdout.write("Fixing student enrollments...")
-        
+
         # Get current academic year
         try:
             current_year = AcademicYear.objects.get(is_current=True)
@@ -19,7 +19,7 @@ class Command(BaseCommand):
         # Get all students
         students = Student.objects.all()
         self.stdout.write(f"Total students: {students.count()}")
-        
+
         # Enroll first 50 students in current year
         count = 0
         skipped = 0
@@ -37,5 +37,5 @@ class Command(BaseCommand):
                 count += 1
             else:
                 skipped += 1
-                
+
         self.stdout.write(self.style.SUCCESS(f"Enrolled {count} students in {current_year} (Skipped {skipped})"))

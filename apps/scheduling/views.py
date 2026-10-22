@@ -31,11 +31,11 @@ class TimeSlotViewSet(viewsets.ModelViewSet):
     ViewSet for managing time slots.
     
     Provides:
-    - List: GET /api/scheduling/time-slots/
-    - Create: POST /api/scheduling/time-slots/
-    - Retrieve: GET /api/scheduling/time-slots/{id}/
-    - Update: PUT/PATCH /api/scheduling/time-slots/{id}/
-    - Delete: DELETE /api/scheduling/time-slots/{id}/
+    - List: GET /api/v1/scheduling/time-slots/
+    - Create: POST /api/v1/scheduling/time-slots/
+    - Retrieve: GET /api/v1/scheduling/time-slots/{id}/
+    - Update: PUT/PATCH /api/v1/scheduling/time-slots/{id}/
+    - Delete: DELETE /api/v1/scheduling/time-slots/{id}/
     
     Permissions:
     - Read: All authenticated users
@@ -56,16 +56,16 @@ class ScheduleViewSet(viewsets.ModelViewSet):
     ViewSet for managing course schedules.
     
     Provides:
-    - List: GET /api/scheduling/schedules/
-    - Create: POST /api/scheduling/schedules/
-    - Retrieve: GET /api/scheduling/schedules/{id}/
-    - Update: PUT/PATCH /api/scheduling/schedules/{id}/
-    - Delete: DELETE /api/scheduling/schedules/{id}/
+    - List: GET /api/v1/scheduling/schedules/
+    - Create: POST /api/v1/scheduling/schedules/
+    - Retrieve: GET /api/v1/scheduling/schedules/{id}/
+    - Update: PUT/PATCH /api/v1/scheduling/schedules/{id}/
+    - Delete: DELETE /api/v1/scheduling/schedules/{id}/
     
     Custom Actions:
-    - by_teacher: GET /api/scheduling/schedules/by_teacher/?teacher_id=X
-    - by_program: GET /api/scheduling/schedules/by_program/?program_id=X
-    - check_conflicts: POST /api/scheduling/schedules/check_conflicts/
+    - by_teacher: GET /api/v1/scheduling/schedules/by_teacher/?teacher_id=X
+    - by_program: GET /api/v1/scheduling/schedules/by_program/?program_id=X
+    - check_conflicts: POST /api/v1/scheduling/schedules/check_conflicts/
     
     Permissions:
     - Read: All authenticated users
@@ -332,14 +332,14 @@ class CourseSessionViewSet(viewsets.ModelViewSet):
     ViewSet for managing course sessions.
     
     Provides:
-    - List: GET /api/scheduling/course-sessions/
-    - Create: POST /api/scheduling/course-sessions/
-    - Retrieve: GET /api/scheduling/course-sessions/{id}/
-    - Update: PUT/PATCH /api/scheduling/course-sessions/{id}/
-    - Delete: DELETE /api/scheduling/course-sessions/{id}/
+    - List: GET /api/v1/scheduling/course-sessions/
+    - Create: POST /api/v1/scheduling/course-sessions/
+    - Retrieve: GET /api/v1/scheduling/course-sessions/{id}/
+    - Update: PUT/PATCH /api/v1/scheduling/course-sessions/{id}/
+    - Delete: DELETE /api/v1/scheduling/course-sessions/{id}/
     
     Custom Actions:
-    - cancel: POST /api/scheduling/course-sessions/{id}/cancel/
+    - cancel: POST /api/v1/scheduling/course-sessions/{id}/cancel/
     
     Permissions:
     - Read: All authenticated users
@@ -408,15 +408,15 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
     ViewSet for managing announcements.
     
     Provides:
-    - List: GET /api/scheduling/announcements/
-    - Create: POST /api/scheduling/announcements/
-    - Retrieve: GET /api/scheduling/announcements/{id}/
-    - Update: PUT/PATCH /api/scheduling/announcements/{id}/
-    - Delete: DELETE /api/scheduling/announcements/{id}/
+    - List: GET /api/v1/scheduling/announcements/
+    - Create: POST /api/v1/scheduling/announcements/
+    - Retrieve: GET /api/v1/scheduling/announcements/{id}/
+    - Update: PUT/PATCH /api/v1/scheduling/announcements/{id}/
+    - Delete: DELETE /api/v1/scheduling/announcements/{id}/
     
     Custom Actions:
-    - publish: POST /api/scheduling/announcements/{id}/publish/
-    - active: GET /api/scheduling/announcements/active/
+    - publish: POST /api/v1/scheduling/announcements/{id}/publish/
+    - active: GET /api/v1/scheduling/announcements/active/
     
     Permissions:
     - Read: Public (only published) or Authenticated (all)

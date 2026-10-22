@@ -9,11 +9,12 @@ This module provides ViewSets for managing academic data:
 - ReportCard: Semester report cards with GPA and credits
 """
 
-from rest_framework import viewsets, filters, status
+from rest_framework import viewsets, filters, serializers, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema, inline_serializer
 from apps.core.permissions import IsAdminOrReadOnly, IsTeacherOrAdmin, IsSecretaryOrAdmin
 from .models import Course, Exam, Grade, CourseGrade, ReportCard
 from django.db import transaction
@@ -1298,6 +1299,23 @@ class DeliberationViewSet(viewsets.ViewSet):
     """
     permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
+    @extend_schema(
+        request=inline_serializer(
+            name='DeliberationRequest',
+            fields={
+                'academic_year_id': serializers.IntegerField(),
+                'student_id': serializers.IntegerField(required=False),
+                'program_id': serializers.IntegerField(required=False),
+            },
+        ),
+        responses=inline_serializer(
+            name='DeliberationResponse',
+            fields={
+                'processed_count': serializers.IntegerField(),
+                'results': serializers.ListField(child=serializers.DictField()),
+            },
+        ),
+    )
     @action(detail=False, methods=['post'])
     def process(self, request):
         """
@@ -1369,6 +1387,15 @@ class DeliberationViewSet(viewsets.ViewSet):
             'results': results
         })
 
+    @extend_schema(
+        responses=inline_serializer(
+            name='DeliberationResultsResponse',
+            fields={
+                'count': serializers.IntegerField(),
+                'results': serializers.ListField(child=serializers.DictField()),
+            },
+        )
+    )
     @action(detail=False, methods=['get'])
     def results(self, request):
         """

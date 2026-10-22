@@ -7,17 +7,49 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from decouple import config
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Security settings
-SECRET_KEY = config("SECRET_KEY", default="django-insecure-change-in-production")
+DJANGO_ENV = config("DJANGO_ENV", default="development").strip().lower()
+if DJANGO_ENV not in {"development", "test", "production"}:
+    raise ImproperlyConfigured(
+        "DJANGO_ENV must be one of: development, test, production"
+    )
+IS_PRODUCTION = DJANGO_ENV == "production"
+
+
+def required_setting(name: str) -> str:
+    value = config(name, default="").strip()
+    if not value:
+        raise ImproperlyConfigured(f"{name} is required when DJANGO_ENV=production")
+    return value
+
+
+SECRET_KEY = (
+    required_setting("SECRET_KEY")
+    if IS_PRODUCTION
+    else config("SECRET_KEY", default="django-insecure-change-in-production")
+)
+if IS_PRODUCTION and (SECRET_KEY.startswith("django-insecure-") or len(SECRET_KEY) < 50):
+    raise ImproperlyConfigured(
+        "SECRET_KEY must contain at least 50 characters and must not start with "
+        "django-insecure- when DJANGO_ENV=production"
+    )
 DEBUG = config("DEBUG", default=False, cast=bool)
-ALLOWED_HOSTS = config(
-    "ALLOWED_HOSTS",
-    default="localhost,127.0.0.1,.onrender.com,lk40s80skcocogs4kkogcgc4.62.171.157.196.sslip.io,.universiter-attawoune.ml",
-).split(",")
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in (
+        required_setting("ALLOWED_HOSTS")
+        if IS_PRODUCTION
+        else config("ALLOWED_HOSTS", default="localhost,127.0.0.1")
+    ).split(",")
+    if host.strip()
+]
+if IS_PRODUCTION and not ALLOWED_HOSTS:
+    raise ImproperlyConfigured("ALLOWED_HOSTS must contain a host when DJANGO_ENV=production")
 
 # Application definition
 INSTALLED_APPS = [
@@ -182,34 +214,70 @@ SIMPLE_JWT = {
 }
 
 # CORS Configuration
-CORS_ALLOW_ALL_ORIGINS = config("CORS_ALLOW_ALL_ORIGINS", default=True, cast=bool)
+CORS_ALLOW_ALL_ORIGINS = config(
+    "CORS_ALLOW_ALL_ORIGINS", default=not IS_PRODUCTION, cast=bool
+)
 CORS_ALLOWED_ORIGINS = [
-    origin.rstrip("/")
-    for origin in config(
-        "CORS_ALLOWED_ORIGINS",
-        default="http://localhost:3000,http://127.0.0.1:3000,https://attawoune-frontend-w7de.vercel.app,http://lk40s80skcocogs4kkogcgc4.62.171.157.196.sslip.io,https://app.universiter-attawoune.ml",
+    origin.strip().rstrip("/")
+    for origin in (
+        required_setting("CORS_ALLOWED_ORIGINS")
+        if IS_PRODUCTION
+        else config(
+            "CORS_ALLOWED_ORIGINS", default="http://localhost:5173,http://127.0.0.1:5173"
+        )
     ).split(",")
+    if origin.strip()
 ]
+if IS_PRODUCTION and not CORS_ALLOWED_ORIGINS:
+    raise ImproperlyConfigured(
+        "CORS_ALLOWED_ORIGINS must contain an origin when DJANGO_ENV=production"
+    )
 CORS_ALLOW_CREDENTIALS = True
 
 # CSRF Trusted Origins
 CSRF_TRUSTED_ORIGINS = [
-    origin.rstrip("/")
+    origin.strip().rstrip("/")
     for origin in config(
         "CSRF_TRUSTED_ORIGINS",
-        default="https://attawoune-frontend-w7de.vercel.app,https://attawoune-backend.onrender.com,http://lk40s80skcocogs4kkogcgc4.62.171.157.196.sslip.io,https://app.universiter-attawoune.ml,https://api.universiter-attawoune.ml",
+        default="" if IS_PRODUCTION else "http://localhost:5173,http://127.0.0.1:5173",
     ).split(",")
     if origin.strip()
 ]
 
 # Production security / reverse proxy settings (Coolify terminates HTTPS)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=False, cast=bool)
-SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=False, cast=bool)
-CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=False, cast=bool)
-SECURE_HSTS_SECONDS = config("SECURE_HSTS_SECONDS", default=0, cast=int)
-SECURE_HSTS_INCLUDE_SUBDOMAINS = config("SECURE_HSTS_INCLUDE_SUBDOMAINS", default=False, cast=bool)
+SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=IS_PRODUCTION, cast=bool)
+SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=IS_PRODUCTION, cast=bool)
+CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=IS_PRODUCTION, cast=bool)
+SECURE_HSTS_SECONDS = config(
+    "SECURE_HSTS_SECONDS", default=31536000 if IS_PRODUCTION else 0, cast=int
+)
+# Enable these only when every subdomain is owned and serves HTTPS.
+SECURE_HSTS_INCLUDE_SUBDOMAINS = config(
+    "SECURE_HSTS_INCLUDE_SUBDOMAINS", default=False, cast=bool
+)
 SECURE_HSTS_PRELOAD = config("SECURE_HSTS_PRELOAD", default=False, cast=bool)
+
+if IS_PRODUCTION:
+    if DEBUG:
+        raise ImproperlyConfigured("DEBUG must be false when DJANGO_ENV=production")
+    for setting_name, enabled in (
+        ("SECURE_SSL_REDIRECT", SECURE_SSL_REDIRECT),
+        ("SESSION_COOKIE_SECURE", SESSION_COOKIE_SECURE),
+        ("CSRF_COOKIE_SECURE", CSRF_COOKIE_SECURE),
+    ):
+        if not enabled:
+            raise ImproperlyConfigured(
+                f"{setting_name} must be true when DJANGO_ENV=production"
+            )
+    if CORS_ALLOW_ALL_ORIGINS:
+        raise ImproperlyConfigured(
+            "CORS_ALLOW_ALL_ORIGINS must be false when DJANGO_ENV=production"
+        )
+    if SECURE_HSTS_SECONDS <= 0:
+        raise ImproperlyConfigured(
+            "SECURE_HSTS_SECONDS must be positive when DJANGO_ENV=production"
+        )
 
 # API Documentation
 SPECTACULAR_SETTINGS = {
@@ -217,4 +285,15 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "API pour la gestion universitaire",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "ENUM_NAME_OVERRIDES": {
+        "TuitionPaymentMethod": "apps.finance.models.TuitionPayment.PaymentMethod",
+        "DebtPaymentMethod": "apps.finance.models.DebtPayment.PaymentMethod",
+        "TuitionPaymentStatus": "apps.finance.models.TuitionPayment.PaymentStatus",
+        "SalaryPaymentStatus": "apps.finance.models.Salary.PaymentStatus",
+        "StudentDebtStatus": "apps.finance.models.StudentDebt.DebtStatus",
+        "StudentStatus": "apps.students.models.Student.Status",
+        "EnrollmentStatus": "apps.students.models.Enrollment.EnrollmentStatus",
+        "AttendanceStatus": "apps.students.models.Attendance.AttendanceStatus",
+        "TeacherContractStatus": "apps.teachers.models.TeacherContract.ContractStatus",
+    },
 }

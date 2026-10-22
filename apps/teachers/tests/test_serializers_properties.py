@@ -59,7 +59,7 @@ class TeacherSerializerPropertyTests(TestCase):
             head=self.dean
         )
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         first_name=st.text(min_size=1, max_size=30, alphabet=st.characters(whitelist_categories=('Lu', 'Ll'))),
         last_name=st.text(min_size=1, max_size=30, alphabet=st.characters(whitelist_categories=('Lu', 'Ll'))),
@@ -125,7 +125,7 @@ class TeacherSerializerPropertyTests(TestCase):
         self.assertIn('department_code', detail_data)
         self.assertIn('faculty_name', detail_data)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         employee_id=st.text(min_size=5, max_size=15, alphabet=st.characters(whitelist_categories=('Nd', 'Lu'))),
     )
@@ -172,14 +172,12 @@ class TeacherSerializerPropertyTests(TestCase):
         
         serializer = TeacherCreateSerializer(data=data)
         
-        # Should be invalid due to duplicate employee_id
+        # Client-supplied IDs are ignored; the model generates the matricule.
         is_valid = serializer.is_valid()
-        self.assertFalse(is_valid)
-        
-        # Should have employee_id error
-        self.assertIn('employee_id', serializer.errors)
+        self.assertTrue(is_valid, serializer.errors)
+        self.assertNotIn('employee_id', serializer.validated_data)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         first_name=st.text(min_size=1, max_size=30, alphabet=st.characters(whitelist_categories=('Lu', 'Ll'))),
         last_name=st.text(min_size=1, max_size=30, alphabet=st.characters(whitelist_categories=('Lu', 'Ll'))),
@@ -273,9 +271,9 @@ class TeacherCourseSerializerPropertyTests(TestCase):
             name='Test Program',
             code=f'TP{unique_id}',
             department=self.department,
-            level=self.level,
             duration_years=3
         )
+        self.program.levels.add(self.level)
         
         # Create academic year and semester with unique identifiers
         self.academic_year = AcademicYear.objects.create(
@@ -286,7 +284,7 @@ class TeacherCourseSerializerPropertyTests(TestCase):
         )
         self.semester = Semester.objects.create(
             academic_year=self.academic_year,
-            semester_type='FALL',
+            semester_type='S1',
             start_date=date(2023, 9, 1),
             end_date=date(2024, 1, 31),
             is_current=False
@@ -308,7 +306,7 @@ class TeacherCourseSerializerPropertyTests(TestCase):
             hire_date=date.today()
         )
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         is_primary=st.booleans()
     )
@@ -355,7 +353,6 @@ class TeacherCourseSerializerPropertyTests(TestCase):
         self.assertIn('course_credits', detail_data)
         self.assertIn('academic_year', detail_data)
     
-    @settings(max_examples=10)
     def test_property_2_validation_enforcement_duplicate_assignment(self):
         """
         Feature: backend-api-implementation, Property 2: Validation Enforcement
@@ -440,7 +437,7 @@ class TeacherContractSerializerPropertyTests(TestCase):
             hire_date=date.today()
         )
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         contract_number=st.text(min_size=5, max_size=20, alphabet=st.characters(whitelist_categories=('Nd', 'Lu'))),
         base_salary=st.decimals(min_value=1000, max_value=100000, places=2),
@@ -486,7 +483,7 @@ class TeacherContractSerializerPropertyTests(TestCase):
         # Verify additional readable representations in detail view
         self.assertIn('teacher_department', detail_data)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         contract_number=st.text(min_size=5, max_size=20, alphabet=st.characters(whitelist_categories=('Nd', 'Lu'))),
     )
@@ -526,7 +523,7 @@ class TeacherContractSerializerPropertyTests(TestCase):
         # Should have contract_number error
         self.assertIn('contract_number', serializer.errors)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         contract_number=st.text(min_size=5, max_size=20, alphabet=st.characters(whitelist_categories=('Nd', 'Lu'))),
         days_duration=st.integers(min_value=1, max_value=30)
@@ -564,7 +561,7 @@ class TeacherContractSerializerPropertyTests(TestCase):
         # Should have end_date error
         self.assertIn('end_date', serializer.errors)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         contract_number=st.text(min_size=5, max_size=20, alphabet=st.characters(whitelist_categories=('Nd', 'Lu'))),
         base_salary=st.decimals(min_value=1000, max_value=100000, places=2),

@@ -41,7 +41,7 @@ def health_check(request):
         'status': 'ok',
         'database': 'unknown'
     }
-    
+
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
@@ -53,5 +53,5 @@ def health_check(request):
         health_status['database'] = 'error'
         health_status['details'] = str(e)
         return JsonResponse(health_status, status=503)
-        
+
     return JsonResponse(health_status)

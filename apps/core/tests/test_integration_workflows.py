@@ -35,14 +35,14 @@ class WorkflowIntegrationTest(APITestCase):
         self.faculty = Faculty.objects.create(name='Sciences', code='SCI')
         self.dept = Department.objects.create(name='Info', code='INF', faculty=self.faculty)
         
-        self.level = Level.objects.create(name='L1', order=1)
+        self.level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         
         self.program = Program.objects.create(
             name='Computer Science',
             code='CS',
             department=self.dept,
-            level=self.level
         )
+        self.program.levels.add(self.level)
 
     def test_academic_year_set_current(self):
         """Test setting an academic year as current."""
@@ -101,7 +101,8 @@ class WorkflowIntegrationTest(APITestCase):
             name="Intro to CS",
             code="CS101",
             program=self.program,
-            semester=self.semester1,
+            semester_type='S1',
+            level=self.level,
             credits=3
         )
         

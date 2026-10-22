@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from drf_spectacular.utils import extend_schema_field
 from .models import Student, Enrollment, Attendance
 
 
@@ -61,10 +62,11 @@ class StudentDetailSerializer(StudentPhotoValidationMixin, serializers.ModelSeri
         model = Student
         fields = '__all__'
     
-    def get_enrollments_count(self, obj):
+    def get_enrollments_count(self, obj) -> int:
         return obj.enrollments.count()
 
-    def get_program_levels(self, obj):
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
+    def get_program_levels(self, obj) -> list[dict[str, object]]:
         """Return levels associated with the student's program."""
         if obj.program:
             return [

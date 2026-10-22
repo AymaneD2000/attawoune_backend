@@ -1,5 +1,7 @@
 from datetime import date
+from pathlib import Path
 
+from django.conf import settings
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -10,6 +12,11 @@ from apps.scheduling.models import CourseSession, Schedule, TimeSlot
 from apps.students.models import Enrollment, Student
 from apps.teachers.models import Teacher, TeacherCourse
 from apps.university.models import AcademicYear, Department, Faculty, Level, Program, Semester
+
+
+def test_static_root_is_available_before_collectstatic():
+    assert Path(settings.STATIC_ROOT).is_dir()
+    assert (Path(settings.STATIC_ROOT) / '.gitkeep').is_file()
 
 
 class AttendanceAndDashboardRuntimeRegressionTests(TestCase):

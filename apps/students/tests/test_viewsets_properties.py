@@ -53,13 +53,13 @@ class PaginationPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Create multiple students
         for i in range(num_items):
@@ -80,7 +80,7 @@ class PaginationPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get('/api/students/students/')
+        response = client.get('/api/v1/students/')
         
         # Verify pagination
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -126,13 +126,13 @@ class DetailEndpointPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Create student
         user = User.objects.create_user(
@@ -154,7 +154,7 @@ class DetailEndpointPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get(f'/api/students/students/{student.id}/')
+        response = client.get(f'/api/v1/students/{student.id}/')
         
         # Verify response
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -204,13 +204,13 @@ class CreateOperationPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Create user for student
         user = User.objects.create_user(
@@ -232,13 +232,13 @@ class CreateOperationPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.post('/api/students/students/', data)
+        response = client.post('/api/v1/students/', data)
         
         # Verify response
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        # Note: StudentCreateSerializer doesn't return id, created_at, updated_at
-        # It returns the input data. To get those fields, we'd need to fetch the created object
-        self.assertEqual(response.data['student_id'], data['student_id'])
+        created_student = Student.objects.get(user=user)
+        self.assertEqual(response.data['student_id'], created_student.student_id)
+        self.assertNotEqual(response.data['student_id'], data['student_id'])
         self.assertEqual(response.data['user'], data['user'])
         self.assertEqual(response.data['program'], data['program'])
 
@@ -275,13 +275,13 @@ class UpdateOperationPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Create student
         user = User.objects.create_user(
@@ -307,7 +307,7 @@ class UpdateOperationPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.patch(f'/api/students/students/{student.id}/', data)
+        response = client.patch(f'/api/v1/students/{student.id}/', data)
         
         # Verify response
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -349,13 +349,13 @@ class DeleteOperationPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Create student
         user = User.objects.create_user(
@@ -375,13 +375,13 @@ class DeleteOperationPropertyTests(TestCase):
         # Make delete request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.delete(f'/api/students/students/{student.id}/')
+        response = client.delete(f'/api/v1/students/{student.id}/')
         
         # Verify delete response
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         
         # Verify subsequent GET returns 404
-        response = client.get(f'/api/students/students/{student.id}/')
+        response = client.get(f'/api/v1/students/{student.id}/')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
@@ -416,13 +416,13 @@ class ValidationErrorPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Create user for student
         user = User.objects.create_user(
@@ -432,11 +432,9 @@ class ValidationErrorPropertyTests(TestCase):
             role='STUDENT'
         )
         
-        # Prepare invalid data (missing required field)
+        # Prepare invalid data (program is required).
         data = {
             'user': user.id,
-            # Missing student_id (required field)
-            'program': program.id,
             'current_level': level.id,
             'enrollment_date': date(year, 9, 1).isoformat()
         }
@@ -444,12 +442,12 @@ class ValidationErrorPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.post('/api/students/students/', data)
+        response = client.post('/api/v1/students/', data)
         
         # Verify validation error
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertTrue(isinstance(response.data, dict))
-        self.assertIn('student_id', response.data)
+        self.assertIn('program', response.data['error']['details'])
 
 
 class NotFoundPropertyTests(TestCase):
@@ -479,7 +477,7 @@ class NotFoundPropertyTests(TestCase):
         # Make API request for non-existent resource
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get(f'/api/students/students/{non_existent_id}/')
+        response = client.get(f'/api/v1/students/{non_existent_id}/')
         
         # Verify not found response
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -526,8 +524,8 @@ class FilterPropertyTests(TestCase):
             name=f'Program-{test_id}',
             code=f'P{test_id}',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Create active students
         for i in range(num_active):
@@ -566,7 +564,7 @@ class FilterPropertyTests(TestCase):
         # Make API request with filter for active students
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get('/api/students/students/?status=ACTIVE')
+        response = client.get('/api/v1/students/?status=ACTIVE')
         
         # Verify filter accuracy
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -615,13 +613,13 @@ class SearchPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Create matching students (search term in student_id)
         for i in range(num_matching):
@@ -658,7 +656,7 @@ class SearchPropertyTests(TestCase):
         # Make API request with search
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get(f'/api/students/students/?search={search_term}')
+        response = client.get(f'/api/v1/students/?search={search_term}')
         
         # Verify search relevance
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -700,13 +698,13 @@ class OrderingPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Create students with different student IDs
         student_ids = []
@@ -730,7 +728,7 @@ class OrderingPropertyTests(TestCase):
         # Make API request with ascending order
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get('/api/students/students/?ordering=student_id')
+        response = client.get('/api/v1/students/?ordering=student_id')
         
         # Verify ordering
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -738,7 +736,7 @@ class OrderingPropertyTests(TestCase):
         self.assertEqual(result_ids, sorted(result_ids))
         
         # Make API request with descending order
-        response = client.get('/api/students/students/?ordering=-student_id')
+        response = client.get('/api/v1/students/?ordering=-student_id')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         result_ids = [r['student_id'] for r in response.data['results']]
         self.assertEqual(result_ids, sorted(result_ids, reverse=True))
@@ -787,8 +785,8 @@ class MultipleFilterPropertyTests(TestCase):
             name=f'Program-{test_id}',
             code=f'P{test_id}',
             department=department,
-            level=level1
         )
+        program.levels.add(level1)
         
         # Create matching students (specific status and level1)
         for i in range(num_matching):
@@ -830,7 +828,7 @@ class MultipleFilterPropertyTests(TestCase):
         client = APIClient()
         client.force_authenticate(user=admin)
         response = client.get(
-            f'/api/students/students/?status={student_status}&current_level={level1.id}'
+            f'/api/v1/students/?status={student_status}&current_level={level1.id}'
         )
         
         # Verify multiple filter combination

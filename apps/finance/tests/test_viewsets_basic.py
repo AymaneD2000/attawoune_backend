@@ -58,10 +58,7 @@ class FinanceViewSetBasicTests(TestCase):
             is_current=True
         )
         
-        self.level = Level.objects.create(
-            name='L1',
-            order=1
-        )
+        self.level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         
         self.faculty = Faculty.objects.create(
             name='Faculty of Science',
@@ -78,8 +75,8 @@ class FinanceViewSetBasicTests(TestCase):
             name='Computer Science',
             code='CS-L1',
             department=self.department,
-            level=self.level
         )
+        self.program.levels.add(self.level)
         
         # Create student
         self.student = Student.objects.create(
@@ -95,49 +92,49 @@ class FinanceViewSetBasicTests(TestCase):
     
     def test_tuition_payment_viewset_requires_authentication(self):
         """Test that tuition payment endpoints require authentication."""
-        response = self.client.get('/api/finance/tuition-payments/')
+        response = self.client.get('/api/v1/finance/tuition-payments/')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
     
     def test_tuition_payment_viewset_requires_accountant_or_admin(self):
         """Test that tuition payment endpoints require accountant or admin role."""
         self.client.force_authenticate(user=self.student_user)
-        response = self.client.get('/api/finance/tuition-payments/')
+        response = self.client.get('/api/v1/finance/tuition-payments/')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
     
     def test_tuition_payment_list_as_accountant(self):
         """Test that accountants can list tuition payments."""
         self.client.force_authenticate(user=self.accountant_user)
-        response = self.client.get('/api/finance/tuition-payments/')
+        response = self.client.get('/api/v1/finance/tuition-payments/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_tuition_payment_list_as_admin(self):
         """Test that admins can list tuition payments."""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get('/api/finance/tuition-payments/')
+        response = self.client.get('/api/v1/finance/tuition-payments/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_tuition_fee_viewset_accessible_by_accountant(self):
         """Test that tuition fee endpoints are accessible by accountants."""
         self.client.force_authenticate(user=self.accountant_user)
-        response = self.client.get('/api/finance/tuition-fees/')
+        response = self.client.get('/api/v1/finance/tuition-fees/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_student_balance_viewset_accessible_by_accountant(self):
         """Test that student balance endpoints are accessible by accountants."""
         self.client.force_authenticate(user=self.accountant_user)
-        response = self.client.get('/api/finance/student-balances/')
+        response = self.client.get('/api/v1/finance/student-balances/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_salary_viewset_accessible_by_accountant(self):
         """Test that salary endpoints are accessible by accountants."""
         self.client.force_authenticate(user=self.accountant_user)
-        response = self.client.get('/api/finance/salaries/')
+        response = self.client.get('/api/v1/finance/salaries/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_expense_viewset_accessible_by_accountant(self):
         """Test that expense endpoints are accessible by accountants."""
         self.client.force_authenticate(user=self.accountant_user)
-        response = self.client.get('/api/finance/expenses/')
+        response = self.client.get('/api/v1/finance/expenses/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_tuition_payment_filtering_by_student(self):
@@ -153,7 +150,7 @@ class FinanceViewSetBasicTests(TestCase):
         )
         
         self.client.force_authenticate(user=self.accountant_user)
-        response = self.client.get(f'/api/finance/tuition-payments/?student={self.student.id}')
+        response = self.client.get(f'/api/v1/finance/tuition-payments/?student={self.student.id}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
     
@@ -170,24 +167,24 @@ class FinanceViewSetBasicTests(TestCase):
         )
         
         self.client.force_authenticate(user=self.accountant_user)
-        response = self.client.get('/api/finance/tuition-payments/?search=PAY001')
+        response = self.client.get('/api/v1/finance/tuition-payments/?search=PAY001')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
     
     def test_tuition_payment_ordering(self):
         """Test ordering tuition payments."""
         self.client.force_authenticate(user=self.accountant_user)
-        response = self.client.get('/api/finance/tuition-payments/?ordering=-payment_date')
+        response = self.client.get('/api/v1/finance/tuition-payments/?ordering=-payment_date')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_salary_filtering_by_year_and_month(self):
         """Test filtering salaries by year and month."""
         self.client.force_authenticate(user=self.accountant_user)
-        response = self.client.get('/api/finance/salaries/?year=2024&month=1')
+        response = self.client.get('/api/v1/finance/salaries/?year=2024&month=1')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_expense_filtering_by_category(self):
         """Test filtering expenses by category."""
         self.client.force_authenticate(user=self.accountant_user)
-        response = self.client.get('/api/finance/expenses/?category=SALARIES')
+        response = self.client.get('/api/v1/finance/expenses/?category=SALARIES')
         self.assertEqual(response.status_code, status.HTTP_200_OK)

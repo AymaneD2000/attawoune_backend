@@ -81,16 +81,16 @@ class StudentCustomActionsTestCase(TestCase):
             faculty=self.faculty
         )
         
-        self.level_l1 = Level.objects.create(name='L1', order=1)
-        self.level_l2 = Level.objects.create(name='L2', order=2)
+        self.level_l1, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
+        self.level_l2, _ = Level.objects.get_or_create(name='L2', defaults={'order': 2})
         
         self.program = Program.objects.create(
             name='Licence Informatique',
             code='LINF',
             department=self.department,
-            level=self.level_l1,
             duration_years=3
         )
+        self.program.levels.add(self.level_l1, self.level_l2)
         
         # Create teacher
         self.teacher = Teacher.objects.create(
@@ -126,7 +126,8 @@ class StudentCustomActionsTestCase(TestCase):
             name='Programmation Python',
             code='INF101',
             program=self.program,
-            semester=self.semester,
+            semester_type='S1',
+            level=self.level_l1,
             credits=6,
             hours_lecture=24
         )
@@ -150,12 +151,14 @@ class StudentCustomActionsTestCase(TestCase):
         )
         
         # Create course grade
-        self.course_grade = CourseGrade.objects.create(
+        self.course_grade, _ = CourseGrade.objects.update_or_create(
             student=self.student,
             course=self.course,
             semester=self.semester,
-            final_score=Decimal('14.5'),
-            is_validated=True
+            defaults={
+                'final_score': Decimal('14.5'),
+                'is_validated': True,
+            },
         )
         
         self.client = APIClient()
@@ -163,36 +166,36 @@ class StudentCustomActionsTestCase(TestCase):
     def test_enrollments_action(self):
         """Test the enrollments custom action."""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get(f'/api/v1/students/students/{self.student.id}/enrollments/')
+        response = self.client.get(f'/api/v1/students/{self.student.id}/enrollments/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('enrollments', response.data)
-        self.assertEqual(len(response.data['enrollments']), 1)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(len(response.data['results']), 1)
     
     def test_grades_action(self):
         """Test the grades custom action."""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get(f'/api/v1/students/students/{self.student.id}/grades/')
+        response = self.client.get(f'/api/v1/students/{self.student.id}/grades/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('exam_grades', response.data)
         self.assertIn('course_grades', response.data)
         # Should have 1 exam grade
-        self.assertEqual(len(response.data['exam_grades']), 1)
+        self.assertEqual(response.data['exam_grades']['count'], 1)
         # Should have 1 course grade
-        self.assertEqual(len(response.data['course_grades']), 1)
+        self.assertEqual(response.data['course_grades']['count'], 1)
     
     def test_attendance_stats_action(self):
         """Test the attendance_stats custom action."""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get(f'/api/v1/students/students/{self.student.id}/attendance_stats/')
+        response = self.client.get(f'/api/v1/students/{self.student.id}/attendance_stats/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('total_sessions', response.data)
-        self.assertIn('present', response.data)
-        self.assertIn('absent', response.data)
+        self.assertIn('total_sessions', response.data['statistics'])
+        self.assertIn('present', response.data['statistics'])
+        self.assertIn('absent', response.data['statistics'])
     
     def test_promote_action(self):
         """Test the promote custom action."""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.post(f'/api/v1/students/students/{self.student.id}/promote/')
+        response = self.client.post(f'/api/v1/students/{self.student.id}/promote/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         # Refresh student from database
         self.student.refresh_from_db()
@@ -202,7 +205,7 @@ class StudentCustomActionsTestCase(TestCase):
     def test_repeat_action(self):
         """Test the repeat custom action."""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.post(f'/api/v1/students/students/{self.student.id}/repeat/')
+        response = self.client.post(f'/api/v1/students/{self.student.id}/repeat/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         # Refresh student from database
         self.student.refresh_from_db()
@@ -245,14 +248,14 @@ class StudentEnrollmentValidationTestCase(TestCase):
         self.department = Department.objects.create(
             name='Informatique', code='INFO', faculty=self.faculty
         )
-        self.level = Level.objects.create(name='L1', order=1)
+        self.level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         self.program = Program.objects.create(
             name='Licence Informatique',
             code='LINF',
             department=self.department,
-            level=self.level,
             duration_years=3
         )
+        self.program.levels.add(self.level)
         
         self.student = Student.objects.create(
             user=self.student_user,

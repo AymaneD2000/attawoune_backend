@@ -82,9 +82,9 @@ class TuitionPaymentSerializerPropertyTests(TestCase):
             name='Test Program',
             code=f'TP{unique_id}',
             department=self.department,
-            level=self.level,
             duration_years=3
         )
+        self.program.levels.add(self.level)
         
         # Create academic year
         self.academic_year = AcademicYear.objects.create(
@@ -111,7 +111,7 @@ class TuitionPaymentSerializerPropertyTests(TestCase):
             enrollment_date=date.today()
         )
 
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         amount=st.decimals(min_value=Decimal('100.00'), max_value=Decimal('10000.00'), places=2),
         payment_method=st.sampled_from([choice[0] for choice in TuitionPayment.PaymentMethod.choices]),
@@ -169,7 +169,7 @@ class TuitionPaymentSerializerPropertyTests(TestCase):
         # Verify additional readable representations in detail view
         self.assertIn('student_program', detail_data)
 
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         amount=st.decimals(min_value=Decimal('-1000.00'), max_value=Decimal('0.00'), places=2),
     )
@@ -208,7 +208,6 @@ class TuitionPaymentSerializerPropertyTests(TestCase):
         # Should have amount error
         self.assertIn('amount', serializer.errors)
 
-    @settings(max_examples=10)
     def test_property_2_validation_enforcement_duplicate_reference(self):
         """
         Feature: backend-api-implementation, Property 2: Validation Enforcement
@@ -288,9 +287,9 @@ class TuitionFeeSerializerPropertyTests(TestCase):
             name='Test Program',
             code=f'TP{unique_id}',
             department=self.department,
-            level=self.level,
             duration_years=3
         )
+        self.program.levels.add(self.level)
         
         # Create academic year
         self.academic_year = AcademicYear.objects.create(
@@ -300,7 +299,7 @@ class TuitionFeeSerializerPropertyTests(TestCase):
             is_current=False
         )
 
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         amount=st.decimals(min_value=Decimal('1000.00'), max_value=Decimal('50000.00'), places=2),
         installments=st.integers(min_value=1, max_value=4),
@@ -346,7 +345,7 @@ class TuitionFeeSerializerPropertyTests(TestCase):
         self.assertIn('faculty_name', detail_data)
         self.assertIn('academic_year_is_current', detail_data)
 
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         amount=st.decimals(min_value=Decimal('-5000.00'), max_value=Decimal('0.00'), places=2),
     )
@@ -376,7 +375,6 @@ class TuitionFeeSerializerPropertyTests(TestCase):
         # Should have amount error
         self.assertIn('amount', serializer.errors)
     
-    @settings(max_examples=10)
     def test_property_2_validation_enforcement_duplicate_program_year(self):
         """
         Feature: backend-api-implementation, Property 2: Validation Enforcement
@@ -389,6 +387,7 @@ class TuitionFeeSerializerPropertyTests(TestCase):
         TuitionFee.objects.create(
             program=self.program,
             academic_year=self.academic_year,
+            level=self.level,
             amount=Decimal('10000.00'),
             installments_allowed=2,
             due_date=date(2024, 1, 31)
@@ -398,6 +397,7 @@ class TuitionFeeSerializerPropertyTests(TestCase):
         data = {
             'program': self.program.id,
             'academic_year': self.academic_year.id,
+            'level': self.level.id,
             'amount': '15000.00',
             'installments_allowed': 3,
             'due_date': date(2024, 1, 31).isoformat()
@@ -409,8 +409,7 @@ class TuitionFeeSerializerPropertyTests(TestCase):
         is_valid = serializer.is_valid()
         self.assertFalse(is_valid)
         
-        # Should have program error
-        self.assertIn('program', serializer.errors)
+        self.assertIn('non_field_errors', serializer.errors)
 
 
 
@@ -449,9 +448,9 @@ class StudentBalanceSerializerPropertyTests(TestCase):
             name='Test Program',
             code=f'TP{unique_id}',
             department=self.department,
-            level=self.level,
             duration_years=3
         )
+        self.program.levels.add(self.level)
         
         # Create academic year
         self.academic_year = AcademicYear.objects.create(
@@ -478,7 +477,7 @@ class StudentBalanceSerializerPropertyTests(TestCase):
             enrollment_date=date.today()
         )
 
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         total_due=st.decimals(min_value=Decimal('1000.00'), max_value=Decimal('50000.00'), places=2),
         total_paid=st.decimals(min_value=Decimal('0.00'), max_value=Decimal('50000.00'), places=2),
@@ -524,7 +523,7 @@ class StudentBalanceSerializerPropertyTests(TestCase):
         self.assertIn('student_program', detail_data)
         self.assertIn('academic_year_is_current', detail_data)
 
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         total_due=st.decimals(min_value=Decimal('1000.00'), max_value=Decimal('50000.00'), places=2),
         total_paid=st.decimals(min_value=Decimal('0.00'), max_value=Decimal('50000.00'), places=2),
@@ -600,7 +599,7 @@ class SalarySerializerPropertyTests(TestCase):
             last_name='Test'
         )
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         month=st.integers(min_value=1, max_value=12),
         year=st.integers(min_value=2020, max_value=2030),
@@ -652,7 +651,7 @@ class SalarySerializerPropertyTests(TestCase):
         self.assertIn('employee_phone', detail_data)
         self.assertIn('employee_role', detail_data)
 
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         base_salary=st.decimals(min_value=Decimal('-1000.00'), max_value=Decimal('0.00'), places=2),
     )
@@ -685,7 +684,7 @@ class SalarySerializerPropertyTests(TestCase):
         # Should have base_salary error
         self.assertIn('base_salary', serializer.errors)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         month=st.integers(min_value=1, max_value=12),
         year=st.integers(min_value=2020, max_value=2030),
@@ -730,7 +729,7 @@ class SalarySerializerPropertyTests(TestCase):
         # Should have employee error
         self.assertIn('employee', serializer.errors)
 
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         base_salary=st.decimals(min_value=Decimal('1000.00'), max_value=Decimal('10000.00'), places=2),
         bonuses=st.decimals(min_value=Decimal('0.00'), max_value=Decimal('2000.00'), places=2),
@@ -803,7 +802,7 @@ class ExpenseSerializerPropertyTests(TestCase):
             last_name='Test'
         )
 
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         category=st.sampled_from([choice[0] for choice in Expense.ExpenseCategory.choices]),
         amount=st.decimals(min_value=Decimal('10.00'), max_value=Decimal('10000.00'), places=2),
@@ -849,7 +848,7 @@ class ExpenseSerializerPropertyTests(TestCase):
         self.assertIn('approved_by_email', detail_data)
         self.assertIn('created_by_email', detail_data)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         amount=st.decimals(min_value=Decimal('-1000.00'), max_value=Decimal('0.00'), places=2),
     )

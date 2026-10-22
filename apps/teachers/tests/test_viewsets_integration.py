@@ -73,7 +73,7 @@ class TeacherViewSetIntegrationTests(TestCase):
     def test_list_teachers_as_admin(self):
         """Test listing teachers as admin user."""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get('/api/teachers/teachers/')
+        response = self.client.get('/api/v1/teachers/teachers/')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('results', response.data)
@@ -82,7 +82,7 @@ class TeacherViewSetIntegrationTests(TestCase):
     def test_retrieve_teacher_as_admin(self):
         """Test retrieving a teacher as admin user."""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get(f'/api/teachers/teachers/{self.teacher.id}/')
+        response = self.client.get(f'/api/v1/teachers/teachers/{self.teacher.id}/')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['employee_id'], 'T001')
@@ -110,16 +110,18 @@ class TeacherViewSetIntegrationTests(TestCase):
             'hire_date': date.today().isoformat(),
             'is_active': True
         }
-        response = self.client.post('/api/teachers/teachers/', data)
+        response = self.client.post('/api/v1/teachers/teachers/', data)
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['employee_id'], 'T002')
+        created_teacher = Teacher.objects.get(user=new_user)
+        self.assertTrue(created_teacher.employee_id)
+        self.assertNotEqual(created_teacher.employee_id, data['employee_id'])
     
     def test_filter_teachers_by_department(self):
         """Test filtering teachers by department."""
         self.client.force_authenticate(user=self.admin_user)
         response = self.client.get(
-            f'/api/teachers/teachers/?department={self.department.id}'
+            f'/api/v1/teachers/teachers/?department={self.department.id}'
         )
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -128,7 +130,7 @@ class TeacherViewSetIntegrationTests(TestCase):
     def test_search_teachers_by_employee_id(self):
         """Test searching teachers by employee ID."""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get('/api/teachers/teachers/?search=T001')
+        response = self.client.get('/api/v1/teachers/teachers/?search=T001')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
@@ -200,16 +202,13 @@ class TeacherCourseViewSetIntegrationTests(TestCase):
         )
         
         # Create level and program
-        self.level = Level.objects.create(
-            name='L1',
-            order=1
-        )
+        self.level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         self.program = Program.objects.create(
             name='Computer Science L1',
             code='CS-L1',
             department=self.department,
-            level=self.level
         )
+        self.program.levels.add(self.level)
         
         # Create course
         self.course = Course.objects.create(
@@ -231,7 +230,7 @@ class TeacherCourseViewSetIntegrationTests(TestCase):
         )
         
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get('/api/teachers/assignments/')
+        response = self.client.get('/api/v1/teachers/assignments/')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('results', response.data)
@@ -246,7 +245,7 @@ class TeacherCourseViewSetIntegrationTests(TestCase):
             'semester': self.semester.id,
             'is_primary': True
         }
-        response = self.client.post('/api/teachers/assignments/', data)
+        response = self.client.post('/api/v1/teachers/assignments/', data)
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(response.data['is_primary'])
@@ -262,7 +261,7 @@ class TeacherCourseViewSetIntegrationTests(TestCase):
         
         self.client.force_authenticate(user=self.admin_user)
         response = self.client.get(
-            f'/api/teachers/assignments/?teacher={self.teacher.id}'
+            f'/api/v1/teachers/assignments/?teacher={self.teacher.id}'
         )
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -332,7 +331,7 @@ class TeacherContractViewSetIntegrationTests(TestCase):
         )
         
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get('/api/teachers/contracts/')
+        response = self.client.get('/api/v1/teachers/contracts/')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('results', response.data)
@@ -349,7 +348,7 @@ class TeacherContractViewSetIntegrationTests(TestCase):
             'base_salary': '60000.00',
             'status': 'ACTIVE'
         }
-        response = self.client.post('/api/teachers/contracts/', data)
+        response = self.client.post('/api/v1/teachers/contracts/', data)
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['contract_number'], 'C002')
@@ -367,7 +366,7 @@ class TeacherContractViewSetIntegrationTests(TestCase):
         )
         
         self.client.force_authenticate(user=self.teacher_user)
-        response = self.client.get('/api/teachers/contracts/')
+        response = self.client.get('/api/v1/teachers/contracts/')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
@@ -385,7 +384,7 @@ class TeacherContractViewSetIntegrationTests(TestCase):
         )
         
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get('/api/teachers/contracts/?status=ACTIVE')
+        response = self.client.get('/api/v1/teachers/contracts/?status=ACTIVE')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)

@@ -32,6 +32,13 @@ class User(AbstractUser):
     )
     phone = models.CharField(max_length=20, blank=True, verbose_name="Téléphone")
     address = models.TextField(blank=True, verbose_name="Adresse")
+    first_name_ar = models.CharField(
+        max_length=150, blank=True, verbose_name="Prénom (arabe)"
+    )
+    last_name_ar = models.CharField(
+        max_length=150, blank=True, verbose_name="Nom (arabe)"
+    )
+    address_ar = models.TextField(blank=True, verbose_name="Adresse (arabe)")
     profile_picture = models.ImageField(
         upload_to='profiles/',
         blank=True,

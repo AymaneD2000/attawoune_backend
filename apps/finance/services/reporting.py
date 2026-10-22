@@ -19,19 +19,19 @@ class FinancialReportService:
         payments = TuitionPayment.objects.filter(student=student)
         if academic_year:
             payments = payments.filter(academic_year=academic_year)
-            
+
         total_paid = payments.filter(status='COMPLETED').aggregate(sum=Sum('amount'))['sum'] or 0
-        
+
         # Determine total due based on Program Tuition Fee
         total_due = 0
         program_name = "N/A"
-        
+
         # Try to find relevant enrollment to determine program
         enrollment = Enrollment.objects.filter(student=student)
         if academic_year:
             enrollment = enrollment.filter(academic_year=academic_year)
         enrollment = enrollment.first()
-        
+
         if enrollment:
             program = enrollment.program
         else:
@@ -40,38 +40,38 @@ class FinancialReportService:
 
         if program:
             program_name = program.name
-            
+
             # Determine level for fee lookup
             level = enrollment.level if enrollment else student.current_level
-            
+
             # 1. Try to get level-specific fee for the year
             if academic_year:
                 # First try with level
                 fee_config = TuitionFee.objects.filter(
-                    program=program, 
+                    program=program,
                     academic_year=academic_year,
                     level=level
                 ).first()
-                
+
                 # If not found, try without level (generic program fee)
                 if not fee_config:
                     fee_config = TuitionFee.objects.filter(
-                        program=program, 
+                        program=program,
                         academic_year=academic_year,
                         level__isnull=True
                     ).first()
-                
+
                 if fee_config:
                     total_due = fee_config.amount
-            
+
             # 2. Fallback to program default fee
             if total_due == 0:
                 total_due = program.tuition_fee
-        
+
         balance = total_due - total_paid
-        
+
         history = list(payments.values('id', 'payment_date', 'amount', 'payment_method', 'reference', 'status', 'description'))
-        
+
         return {
             "student_name": student.user.get_full_name(),
             "program": program_name,

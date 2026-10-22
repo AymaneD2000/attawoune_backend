@@ -43,6 +43,8 @@ class PaginationPropertyTests(TestCase):
             role='ADMIN'
         )
         
+        existing_count = AcademicYear.objects.count()
+
         # Create multiple academic years
         for i in range(num_items):
             AcademicYear.objects.create(
@@ -54,7 +56,7 @@ class PaginationPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get('/api/university/academic-years/')
+        response = client.get('/api/v1/university/academic-years/')
         
         # Verify pagination
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -65,7 +67,7 @@ class PaginationPropertyTests(TestCase):
         
         # Verify exactly 20 items per page
         self.assertEqual(len(response.data['results']), 20)
-        self.assertEqual(response.data['count'], num_items)
+        self.assertEqual(response.data['count'], existing_count + num_items)
 
 
 class DetailEndpointPropertyTests(TestCase):
@@ -103,7 +105,7 @@ class DetailEndpointPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get(f'/api/university/faculties/{faculty.id}/')
+        response = client.get(f'/api/v1/university/faculties/{faculty.id}/')
         
         # Verify response
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -156,7 +158,7 @@ class CreateOperationPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.post('/api/university/academic-years/', data)
+        response = client.post('/api/v1/university/academic-years/', data)
         
         # Verify response
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -208,7 +210,7 @@ class UpdateOperationPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.patch(f'/api/university/classrooms/{classroom.id}/', data)
+        response = client.patch(f'/api/v1/university/classrooms/{classroom.id}/', data)
         
         # Verify response
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -253,13 +255,13 @@ class DeleteOperationPropertyTests(TestCase):
         # Make delete request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.delete(f'/api/university/academic-years/{academic_year.id}/')
+        response = client.delete(f'/api/v1/university/academic-years/{academic_year.id}/')
         
         # Verify delete response
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         
         # Verify subsequent GET returns 404
-        response = client.get(f'/api/university/academic-years/{academic_year.id}/')
+        response = client.get(f'/api/v1/university/academic-years/{academic_year.id}/')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
@@ -301,7 +303,7 @@ class ValidationErrorPropertyTests(TestCase):
         # The negative capacity will be caught by either serializer validation
         # or database constraint, both should result in 400 or 500 error
         try:
-            response = client.post('/api/university/classrooms/', data)
+            response = client.post('/api/v1/university/classrooms/', data)
             # If we get here, verify it's a validation error
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
             # Response should contain error details
@@ -340,7 +342,7 @@ class NotFoundPropertyTests(TestCase):
         # Make API request for non-existent resource
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get(f'/api/university/faculties/{non_existent_id}/')
+        response = client.get(f'/api/v1/university/faculties/{non_existent_id}/')
         
         # Verify not found response
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -399,7 +401,7 @@ class FilterPropertyTests(TestCase):
         # Make API request with filter for non-current items
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get('/api/university/academic-years/?is_current=false')
+        response = client.get('/api/v1/university/academic-years/?is_current=false')
         
         # Verify filter accuracy
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -461,7 +463,7 @@ class SearchPropertyTests(TestCase):
         # Make API request with search
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get(f'/api/university/faculties/?search={search_term}')
+        response = client.get(f'/api/v1/university/faculties/?search={search_term}')
         
         # Verify search relevance
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -510,7 +512,7 @@ class OrderingPropertyTests(TestCase):
         # Make API request with ascending order
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get('/api/university/classrooms/?ordering=capacity')
+        response = client.get('/api/v1/university/classrooms/?ordering=capacity')
         
         # Verify ordering
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -518,7 +520,7 @@ class OrderingPropertyTests(TestCase):
         self.assertEqual(result_capacities, sorted(result_capacities))
         
         # Make API request with descending order
-        response = client.get('/api/university/classrooms/?ordering=-capacity')
+        response = client.get('/api/v1/university/classrooms/?ordering=-capacity')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         result_capacities = [r['capacity'] for r in response.data['results']]
         self.assertEqual(result_capacities, sorted(result_capacities, reverse=True))
@@ -576,7 +578,7 @@ class MultipleFilterPropertyTests(TestCase):
         client = APIClient()
         client.force_authenticate(user=admin)
         response = client.get(
-            f'/api/university/classrooms/?has_projector={str(has_projector).lower()}'
+            f'/api/v1/university/classrooms/?has_projector={str(has_projector).lower()}'
             f'&has_computers={str(has_computers).lower()}'
         )
         

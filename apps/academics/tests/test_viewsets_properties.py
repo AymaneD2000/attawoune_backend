@@ -53,13 +53,13 @@ class CoursePaginationPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         academic_year = AcademicYear.objects.create(
             name='2023-2024',
             start_date=date(2023, 9, 1),
@@ -74,6 +74,8 @@ class CoursePaginationPropertyTests(TestCase):
             is_current=True
         )
         
+        existing_count = Course.objects.count()
+
         # Create multiple courses
         for i in range(num_items):
             Course.objects.create(
@@ -82,14 +84,15 @@ class CoursePaginationPropertyTests(TestCase):
                 program=program,
                 course_type='REQUIRED',
                 credits=3,
-                semester=semester,
+                semester_type='S1',
+                level=level,
                 is_active=True
             )
         
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get('/api/academics/courses/')
+        response = client.get('/api/v1/academics/courses/')
         
         # Verify pagination
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -100,7 +103,7 @@ class CoursePaginationPropertyTests(TestCase):
         
         # Verify exactly 20 items per page
         self.assertEqual(len(response.data['results']), 20)
-        self.assertEqual(response.data['count'], num_items)
+        self.assertEqual(response.data['count'], existing_count + num_items)
 
 
 class CourseDetailEndpointPropertyTests(TestCase):
@@ -135,13 +138,13 @@ class CourseDetailEndpointPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         academic_year = AcademicYear.objects.create(
             name=f'{year}-{year+1}',
             start_date=date(year, 9, 1),
@@ -163,14 +166,15 @@ class CourseDetailEndpointPropertyTests(TestCase):
             program=program,
             course_type='REQUIRED',
             credits=credits,
-            semester=semester,
+            semester_type='S1',
+            level=level,
             is_active=True
         )
         
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get(f'/api/academics/courses/{course.id}/')
+        response = client.get(f'/api/v1/academics/courses/{course.id}/')
         
         # Verify response
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -178,9 +182,9 @@ class CourseDetailEndpointPropertyTests(TestCase):
         # Verify all expected fields are present
         expected_fields = [
             'id', 'name', 'code', 'description', 'program', 'course_type',
-            'credits', 'semester', 'is_active', 'created_at', 'updated_at',
+            'credits', 'semester_type', 'level', 'is_active', 'created_at', 'updated_at',
             # Computed/display fields
-            'program_name', 'program_code', 'semester_name', 'course_type_display',
+            'program_name', 'program_code', 'semester_type_display', 'course_type_display',
             'prerequisites_count', 'exams_count'
         ]
         for field in expected_fields:
@@ -219,13 +223,13 @@ class CourseCreateOperationPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         academic_year = AcademicYear.objects.create(
             name=f'{year}-{year+1}',
             start_date=date(year, 9, 1),
@@ -247,14 +251,14 @@ class CourseCreateOperationPropertyTests(TestCase):
             'program': program.id,
             'course_type': 'REQUIRED',
             'credits': credits,
-            'semester': semester.id,
+            'semester_type': 'S1', 'level': level.id,
             'is_active': True
         }
         
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.post('/api/academics/courses/', data)
+        response = client.post('/api/v1/academics/courses/', data)
         
         # Verify response
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -294,13 +298,13 @@ class CourseUpdateOperationPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         academic_year = AcademicYear.objects.create(
             name='2023-2024',
             start_date=date(2023, 9, 1),
@@ -322,7 +326,8 @@ class CourseUpdateOperationPropertyTests(TestCase):
             program=program,
             course_type='REQUIRED',
             credits=old_credits,
-            semester=semester,
+            semester_type='S1',
+            level=level,
             is_active=True
         )
         
@@ -334,7 +339,7 @@ class CourseUpdateOperationPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.patch(f'/api/academics/courses/{course.id}/', data)
+        response = client.patch(f'/api/v1/academics/courses/{course.id}/', data)
         
         # Verify response
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -376,13 +381,13 @@ class CourseDeleteOperationPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         academic_year = AcademicYear.objects.create(
             name=f'{year}-{year+1}',
             start_date=date(year, 9, 1),
@@ -404,20 +409,21 @@ class CourseDeleteOperationPropertyTests(TestCase):
             program=program,
             course_type='REQUIRED',
             credits=3,
-            semester=semester,
+            semester_type='S1',
+            level=level,
             is_active=True
         )
         
         # Make delete request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.delete(f'/api/academics/courses/{course.id}/')
+        response = client.delete(f'/api/v1/academics/courses/{course.id}/')
         
         # Verify delete response
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         
         # Verify subsequent GET returns 404
-        response = client.get(f'/api/academics/courses/{course.id}/')
+        response = client.get(f'/api/v1/academics/courses/{course.id}/')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
@@ -452,13 +458,13 @@ class CourseValidationErrorPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         academic_year = AcademicYear.objects.create(
             name=f'{year}-{year+1}',
             start_date=date(year, 9, 1),
@@ -480,18 +486,18 @@ class CourseValidationErrorPropertyTests(TestCase):
             'program': program.id,
             'course_type': 'REQUIRED',
             'credits': 3,
-            'semester': semester.id
+            'semester_type': 'S1', 'level': level.id
         }
         
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.post('/api/academics/courses/', data)
+        response = client.post('/api/v1/academics/courses/', data)
         
         # Verify validation error
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertTrue(isinstance(response.data, dict))
-        self.assertIn('code', response.data)
+        self.assertIn('code', response.data['error']['details'])
 
 
 class CourseNotFoundPropertyTests(TestCase):
@@ -521,7 +527,7 @@ class CourseNotFoundPropertyTests(TestCase):
         # Make API request for non-existent resource
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get(f'/api/academics/courses/{non_existent_id}/')
+        response = client.get(f'/api/v1/academics/courses/{non_existent_id}/')
         
         # Verify not found response
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -568,8 +574,8 @@ class CourseFilterPropertyTests(TestCase):
             name=f'Program-{test_id}',
             code=f'P{test_id}',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         academic_year = AcademicYear.objects.create(
             name=f'AY-{test_id}',
             start_date=date(2023, 9, 1),
@@ -592,7 +598,8 @@ class CourseFilterPropertyTests(TestCase):
                 program=program,
                 course_type='REQUIRED',
                 credits=3,
-                semester=semester,
+                semester_type='S1',
+                level=level,
                 is_active=True
             )
         
@@ -604,14 +611,15 @@ class CourseFilterPropertyTests(TestCase):
                 program=program,
                 course_type='ELECTIVE',
                 credits=3,
-                semester=semester,
+                semester_type='S1',
+                level=level,
                 is_active=True
             )
         
         # Make API request with filter for required courses
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get('/api/academics/courses/?course_type=REQUIRED')
+        response = client.get('/api/v1/academics/courses/?course_type=REQUIRED')
         
         # Verify filter accuracy
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -660,13 +668,13 @@ class CourseSearchPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         academic_year = AcademicYear.objects.create(
             name='2023-2024',
             start_date=date(2023, 9, 1),
@@ -689,7 +697,8 @@ class CourseSearchPropertyTests(TestCase):
                 program=program,
                 course_type='REQUIRED',
                 credits=3,
-                semester=semester,
+                semester_type='S1',
+                level=level,
                 is_active=True
             )
         
@@ -701,14 +710,17 @@ class CourseSearchPropertyTests(TestCase):
                 program=program,
                 course_type='REQUIRED',
                 credits=3,
-                semester=semester,
+                semester_type='S1',
+                level=level,
                 is_active=True
             )
         
         # Make API request with search
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get(f'/api/academics/courses/?search={search_term}')
+        response = client.get(
+            f'/api/v1/academics/courses/?search={search_term}&program={program.id}'
+        )
         
         # Verify search relevance
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -750,13 +762,13 @@ class CourseOrderingPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         academic_year = AcademicYear.objects.create(
             name='2023-2024',
             start_date=date(2023, 9, 1),
@@ -782,14 +794,15 @@ class CourseOrderingPropertyTests(TestCase):
                 program=program,
                 course_type='REQUIRED',
                 credits=3,
-                semester=semester,
+                semester_type='S1',
+                level=level,
                 is_active=True
             )
         
         # Make API request with ascending order
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get('/api/academics/courses/?ordering=code')
+        response = client.get('/api/v1/academics/courses/?ordering=code')
         
         # Verify ordering
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -797,7 +810,7 @@ class CourseOrderingPropertyTests(TestCase):
         self.assertEqual(result_codes, sorted(result_codes))
         
         # Make API request with descending order
-        response = client.get('/api/academics/courses/?ordering=-code')
+        response = client.get('/api/v1/academics/courses/?ordering=-code')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         result_codes = [r['code'] for r in response.data['results']]
         self.assertEqual(result_codes, sorted(result_codes, reverse=True))
@@ -847,8 +860,8 @@ class CourseMultipleFilterPropertyTests(TestCase):
             name=f'Program-{test_id}',
             code=f'P{test_id}',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         academic_year = AcademicYear.objects.create(
             name=f'AY-{test_id}',
             start_date=date(2023, 9, 1),
@@ -871,7 +884,8 @@ class CourseMultipleFilterPropertyTests(TestCase):
                 program=program,
                 course_type=course_type,
                 credits=3,
-                semester=semester,
+                semester_type='S1',
+                level=level,
                 is_active=is_active
             )
         
@@ -884,7 +898,8 @@ class CourseMultipleFilterPropertyTests(TestCase):
                 program=program,
                 course_type=different_type if i % 2 == 0 else course_type,
                 credits=3,
-                semester=semester,
+                semester_type='S1',
+                level=level,
                 is_active=not is_active if i % 2 == 1 else is_active
             )
         
@@ -892,7 +907,7 @@ class CourseMultipleFilterPropertyTests(TestCase):
         client = APIClient()
         client.force_authenticate(user=admin)
         response = client.get(
-            f'/api/academics/courses/?course_type={course_type}&is_active={str(is_active).lower()}'
+            f'/api/v1/academics/courses/?course_type={course_type}&is_active={str(is_active).lower()}'
         )
         
         # Verify multiple filter combination

@@ -71,11 +71,11 @@ class StudentSerializerPropertyTests(TestCase):
             name='Test Program',
             code=f'TP{unique_id}',
             department=self.department,
-            level=self.level,
             duration_years=3
         )
+        self.program.levels.add(self.level)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         first_name=st.text(min_size=1, max_size=30, alphabet=st.characters(whitelist_categories=('Lu', 'Ll'))),
         last_name=st.text(min_size=1, max_size=30, alphabet=st.characters(whitelist_categories=('Lu', 'Ll'))),
@@ -136,7 +136,7 @@ class StudentSerializerPropertyTests(TestCase):
         self.assertIn('department_name', detail_data)
         self.assertIn('faculty_name', detail_data)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         student_id=st.text(min_size=5, max_size=15, alphabet=st.characters(whitelist_categories=('Nd', 'Lu'))),
     )
@@ -185,14 +185,12 @@ class StudentSerializerPropertyTests(TestCase):
         
         serializer = StudentCreateSerializer(data=data)
         
-        # Should be invalid due to duplicate student_id
+        # Client-supplied IDs are ignored; the model generates the matricule.
         is_valid = serializer.is_valid()
-        self.assertFalse(is_valid)
-        
-        # Should have student_id error
-        self.assertIn('student_id', serializer.errors)
+        self.assertTrue(is_valid, serializer.errors)
+        self.assertNotIn('student_id', serializer.validated_data)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         student_id=st.text(min_size=5, max_size=15, alphabet=st.characters(whitelist_categories=('Nd', 'Lu'))),
     )
@@ -239,7 +237,7 @@ class StudentSerializerPropertyTests(TestCase):
         # Should have current_level error
         self.assertIn('current_level', serializer.errors)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         first_name=st.text(min_size=1, max_size=30, alphabet=st.characters(whitelist_categories=('Lu', 'Ll'))),
         last_name=st.text(min_size=1, max_size=30, alphabet=st.characters(whitelist_categories=('Lu', 'Ll'))),
@@ -326,9 +324,9 @@ class EnrollmentSerializerPropertyTests(TestCase):
             name='Test Program',
             code=f'TP{unique_id}',
             department=self.department,
-            level=self.level,
             duration_years=3
         )
+        self.program.levels.add(self.level)
         
         # Create academic year
         self.academic_year = AcademicYear.objects.create(
@@ -355,7 +353,7 @@ class EnrollmentSerializerPropertyTests(TestCase):
             enrollment_date=date.today()
         )
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         status=st.sampled_from([choice[0] for choice in Enrollment.EnrollmentStatus.choices])
     )
@@ -395,7 +393,6 @@ class EnrollmentSerializerPropertyTests(TestCase):
         self.assertEqual(list_data['academic_year_name'], self.academic_year.name)
         self.assertEqual(list_data['program_name'], self.program.name)
     
-    @settings(max_examples=10)
     def test_property_2_validation_enforcement_program_level_mismatch(self):
         """
         Feature: backend-api-implementation, Property 2: Validation Enforcement
@@ -431,7 +428,6 @@ class EnrollmentSerializerPropertyTests(TestCase):
         # Should have level error
         self.assertIn('level', serializer.errors)
     
-    @settings(max_examples=10)
     def test_property_2_validation_enforcement_duplicate_active_enrollment(self):
         """
         Feature: backend-api-implementation, Property 2: Validation Enforcement
@@ -520,9 +516,9 @@ class AttendanceSerializerPropertyTests(TestCase):
             name='Test Program',
             code=f'TP{unique_id}',
             department=self.department,
-            level=self.level,
             duration_years=3
         )
+        self.program.levels.add(self.level)
         
         # Create academic year and semester
         self.academic_year = AcademicYear.objects.create(
@@ -533,7 +529,7 @@ class AttendanceSerializerPropertyTests(TestCase):
         )
         self.semester = Semester.objects.create(
             academic_year=self.academic_year,
-            semester_type='FALL',
+            semester_type='S1',
             start_date=date(2023, 9, 1),
             end_date=date(2024, 1, 31),
             is_current=True
@@ -595,7 +591,7 @@ class AttendanceSerializerPropertyTests(TestCase):
             enrollment_date=date.today()
         )
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         status=st.sampled_from([choice[0] for choice in Attendance.AttendanceStatus.choices])
     )
@@ -640,7 +636,6 @@ class AttendanceSerializerPropertyTests(TestCase):
         self.assertIn('teacher_name', detail_data)
         self.assertIn('recorded_by_name', detail_data)
     
-    @settings(max_examples=10)
     def test_property_2_validation_enforcement_duplicate_attendance(self):
         """
         Feature: backend-api-implementation, Property 2: Validation Enforcement

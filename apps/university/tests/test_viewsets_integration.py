@@ -83,20 +83,17 @@ class UniversityViewSetIntegrationTests(TestCase):
             description='CS department'
         )
         
-        self.level = Level.objects.create(
-            name='L1',
-            order=1
-        )
+        self.level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         
         self.program = Program.objects.create(
             name='Computer Science L1',
             code='CS-L1',
             department=self.department,
-            level=self.level,
             duration_years=1,
             tuition_fee=1000.00,
             is_active=True
         )
+        self.program.levels.add(self.level)
         
         self.classroom = Classroom.objects.create(
             name='Room 101',
@@ -113,16 +110,19 @@ class UniversityViewSetIntegrationTests(TestCase):
     def test_academic_year_viewset_list(self):
         """Test AcademicYearViewSet list action."""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get('/api/university/academic-years/')
+        response = self.client.get('/api/v1/university/academic-years/')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 1)
-        self.assertIn('semesters_count', response.data['results'][0])
+        result = next(
+            item for item in response.data['results']
+            if item['id'] == self.academic_year.id
+        )
+        self.assertIn('semesters_count', result)
     
     def test_academic_year_viewset_retrieve(self):
         """Test AcademicYearViewSet retrieve action."""
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.get(f'/api/university/academic-years/{self.academic_year.id}/')
+        response = self.client.get(f'/api/v1/university/academic-years/{self.academic_year.id}/')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['name'], '2023-2024')
@@ -132,7 +132,7 @@ class UniversityViewSetIntegrationTests(TestCase):
         """Test AcademicYearViewSet permissions."""
         # Admin can create
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.post('/api/university/academic-years/', {
+        response = self.client.post('/api/v1/university/academic-years/', {
             'name': '2024-2025',
             'start_date': '2024-09-01',
             'end_date': '2025-06-30',
@@ -142,7 +142,7 @@ class UniversityViewSetIntegrationTests(TestCase):
         
         # Student cannot create
         self.client.force_authenticate(user=self.student_user)
-        response = self.client.post('/api/university/academic-years/', {
+        response = self.client.post('/api/v1/university/academic-years/', {
             'name': '2025-2026',
             'start_date': '2025-09-01',
             'end_date': '2026-06-30',
@@ -151,7 +151,7 @@ class UniversityViewSetIntegrationTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         
         # Student can read
-        response = self.client.get('/api/university/academic-years/')
+        response = self.client.get('/api/v1/university/academic-years/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_semester_viewset_filtering(self):
@@ -160,18 +160,22 @@ class UniversityViewSetIntegrationTests(TestCase):
         
         # Filter by academic year
         response = self.client.get(
-            f'/api/university/semesters/?academic_year={self.academic_year.id}'
+            f'/api/v1/university/semesters/?academic_year={self.academic_year.id}'
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
         
         # Filter by semester type
-        response = self.client.get('/api/university/semesters/?semester_type=S1')
+        response = self.client.get(
+            f'/api/v1/university/semesters/?academic_year={self.academic_year.id}&semester_type=S1'
+        )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
         
         # Filter by is_current
-        response = self.client.get('/api/university/semesters/?is_current=true')
+        response = self.client.get(
+            f'/api/v1/university/semesters/?academic_year={self.academic_year.id}&is_current=true'
+        )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
     
@@ -180,12 +184,12 @@ class UniversityViewSetIntegrationTests(TestCase):
         self.client.force_authenticate(user=self.admin_user)
         
         # Search by name
-        response = self.client.get('/api/university/faculties/?search=Science')
+        response = self.client.get('/api/v1/university/faculties/?search=Science')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
         
         # Search by code
-        response = self.client.get('/api/university/faculties/?search=SCI')
+        response = self.client.get('/api/v1/university/faculties/?search=SCI')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
     
@@ -202,12 +206,16 @@ class UniversityViewSetIntegrationTests(TestCase):
         )
         
         # Order by name ascending
-        response = self.client.get('/api/university/departments/?ordering=name')
+        response = self.client.get(
+            f'/api/v1/university/departments/?faculty={self.faculty.id}&ordering=name'
+        )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['results'][0]['name'], 'Computer Science')
         
         # Order by name descending
-        response = self.client.get('/api/university/departments/?ordering=-name')
+        response = self.client.get(
+            f'/api/v1/university/departments/?faculty={self.faculty.id}&ordering=-name'
+        )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['results'][0]['name'], 'Mathematics')
     
@@ -215,11 +223,11 @@ class UniversityViewSetIntegrationTests(TestCase):
         """Test ProgramViewSet permissions."""
         # Admin can create
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.post('/api/university/programs/', {
+        response = self.client.post('/api/v1/university/programs/', {
             'name': 'Computer Science L2',
             'code': 'CS-L2',
             'department': self.department.id,
-            'level': self.level.id,
+            'levels': [self.level.id],
             'duration_years': 1,
             'tuition_fee': 1000.00,
             'is_active': True
@@ -228,11 +236,11 @@ class UniversityViewSetIntegrationTests(TestCase):
         
         # Secretary can create
         self.client.force_authenticate(user=self.secretary_user)
-        response = self.client.post('/api/university/programs/', {
+        response = self.client.post('/api/v1/university/programs/', {
             'name': 'Computer Science L3',
             'code': 'CS-L3',
             'department': self.department.id,
-            'level': self.level.id,
+            'levels': [self.level.id],
             'duration_years': 1,
             'tuition_fee': 1000.00,
             'is_active': True
@@ -241,11 +249,11 @@ class UniversityViewSetIntegrationTests(TestCase):
         
         # Student cannot create
         self.client.force_authenticate(user=self.student_user)
-        response = self.client.post('/api/university/programs/', {
+        response = self.client.post('/api/v1/university/programs/', {
             'name': 'Computer Science M1',
             'code': 'CS-M1',
             'department': self.department.id,
-            'level': self.level.id,
+            'levels': [self.level.id],
             'duration_years': 1,
             'tuition_fee': 1000.00,
             'is_active': True
@@ -253,7 +261,7 @@ class UniversityViewSetIntegrationTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         
         # Student can read
-        response = self.client.get('/api/university/programs/')
+        response = self.client.get('/api/v1/university/programs/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_classroom_viewset_filtering(self):
@@ -272,22 +280,22 @@ class UniversityViewSetIntegrationTests(TestCase):
         )
         
         # Filter by building
-        response = self.client.get('/api/university/classrooms/?building=Building A')
+        response = self.client.get('/api/v1/university/classrooms/?building=Building A')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
         
         # Filter by has_projector
-        response = self.client.get('/api/university/classrooms/?has_projector=true')
+        response = self.client.get('/api/v1/university/classrooms/?has_projector=true')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
         
         # Filter by has_computers
-        response = self.client.get('/api/university/classrooms/?has_computers=true')
+        response = self.client.get('/api/v1/university/classrooms/?has_computers=true')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
         
         # Filter by is_available
-        response = self.client.get('/api/university/classrooms/?is_available=true')
+        response = self.client.get('/api/v1/university/classrooms/?is_available=true')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
     
@@ -296,12 +304,12 @@ class UniversityViewSetIntegrationTests(TestCase):
         self.client.force_authenticate(user=self.admin_user)
         
         # List action should use list serializer (fewer fields)
-        list_response = self.client.get('/api/university/faculties/')
+        list_response = self.client.get('/api/v1/university/faculties/')
         self.assertEqual(list_response.status_code, status.HTTP_200_OK)
         list_fields = set(list_response.data['results'][0].keys())
         
         # Retrieve action should use detail serializer (more fields)
-        detail_response = self.client.get(f'/api/university/faculties/{self.faculty.id}/')
+        detail_response = self.client.get(f'/api/v1/university/faculties/{self.faculty.id}/')
         self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
         detail_fields = set(detail_response.data.keys())
         
@@ -316,7 +324,7 @@ class UniversityViewSetIntegrationTests(TestCase):
         # This test verifies that the queries are optimized
         # by checking that related objects are accessible without additional queries
         with self.assertNumQueries(4):  # Should be minimal queries due to optimization
-            response = self.client.get('/api/university/departments/')
+            response = self.client.get('/api/v1/university/departments/')
             self.assertEqual(response.status_code, status.HTTP_200_OK)
             # Access related data that should be prefetched
             self.assertIn('faculty_name', response.data['results'][0])

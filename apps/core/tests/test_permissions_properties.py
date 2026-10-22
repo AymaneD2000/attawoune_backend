@@ -32,6 +32,7 @@ User = get_user_model()
 
 # Test view for permission testing
 class TestView(APIView):
+    __test__ = False
     """Simple test view for permission testing."""
     
     def get(self, request):
@@ -137,18 +138,15 @@ class PermissionPropertyTests(TestCase):
             faculty=self.faculty
         )
         
-        self.level = Level.objects.create(
-            name='L1',
-            order=1
-        )
+        self.level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         
         self.program = Program.objects.create(
             name='Computer Science L1',
             code='CS-L1',
             department=self.department,
-            level=self.level,
             tuition_fee=500000
         )
+        self.program.levels.add(self.level)
         
         # Create student profile
         self.student = Student.objects.create(
@@ -172,7 +170,8 @@ class PermissionPropertyTests(TestCase):
             name='Introduction to Programming',
             code='CS101',
             program=self.program,
-            semester=self.semester,
+            semester_type='S1',
+            level=self.level,
             credits=3
         )
         
@@ -295,7 +294,8 @@ class PermissionPropertyTests(TestCase):
             name='Advanced Programming',
             code='CS201',
             program=self.program,
-            semester=self.semester,
+            semester_type='S1',
+            level=self.level,
             credits=3
         )
         

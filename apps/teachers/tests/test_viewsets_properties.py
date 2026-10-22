@@ -73,7 +73,7 @@ class PaginationPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get('/api/teachers/teachers/')
+        response = client.get('/api/v1/teachers/teachers/')
         
         # Verify pagination
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -141,7 +141,7 @@ class DetailEndpointPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get(f'/api/teachers/teachers/{teacher.id}/')
+        response = client.get(f'/api/v1/teachers/teachers/{teacher.id}/')
         
         # Verify response
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -215,11 +215,13 @@ class CreateOperationPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.post('/api/teachers/teachers/', data)
+        response = client.post('/api/v1/teachers/teachers/', data)
         
         # Verify response
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['employee_id'], data['employee_id'])
+        created_teacher = Teacher.objects.get(user=user)
+        self.assertTrue(created_teacher.employee_id)
+        self.assertNotEqual(created_teacher.employee_id, data['employee_id'])
         self.assertEqual(response.data['user'], data['user'])
         self.assertEqual(response.data['department'], data['department'])
 
@@ -281,7 +283,7 @@ class UpdateOperationPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.patch(f'/api/teachers/teachers/{teacher.id}/', data)
+        response = client.patch(f'/api/v1/teachers/teachers/{teacher.id}/', data)
         
         # Verify response
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -344,13 +346,13 @@ class DeleteOperationPropertyTests(TestCase):
         # Make delete request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.delete(f'/api/teachers/teachers/{teacher.id}/')
+        response = client.delete(f'/api/v1/teachers/teachers/{teacher.id}/')
         
         # Verify delete response
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         
         # Verify subsequent GET returns 404
-        response = client.get(f'/api/teachers/teachers/{teacher.id}/')
+        response = client.get(f'/api/v1/teachers/teachers/{teacher.id}/')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
@@ -394,10 +396,8 @@ class ValidationErrorPropertyTests(TestCase):
             role='TEACHER'
         )
         
-        # Prepare invalid data (missing required field)
+        # Prepare invalid data (user is required).
         data = {
-            'user': user.id,
-            # Missing employee_id (required field)
             'department': department.id,
             'rank': 'ASSISTANT',
             'contract_type': 'PERMANENT',
@@ -407,12 +407,12 @@ class ValidationErrorPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.post('/api/teachers/teachers/', data)
+        response = client.post('/api/v1/teachers/teachers/', data)
         
         # Verify validation error
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertTrue(isinstance(response.data, dict))
-        self.assertIn('employee_id', response.data)
+        self.assertIn('user', response.data['error']['details'])
 
 
 class NotFoundPropertyTests(TestCase):
@@ -442,7 +442,7 @@ class NotFoundPropertyTests(TestCase):
         # Make API request for non-existent resource
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get(f'/api/teachers/teachers/{non_existent_id}/')
+        response = client.get(f'/api/v1/teachers/teachers/{non_existent_id}/')
         
         # Verify not found response
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -525,7 +525,7 @@ class FilterPropertyTests(TestCase):
         # Make API request with filter for active teachers
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get('/api/teachers/teachers/?is_active=true')
+        response = client.get('/api/v1/teachers/teachers/?is_active=true')
         
         # Verify filter accuracy
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -612,7 +612,7 @@ class SearchPropertyTests(TestCase):
         # Make API request with search
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get(f'/api/teachers/teachers/?search={search_term}')
+        response = client.get(f'/api/v1/teachers/teachers/?search={search_term}')
         
         # Verify search relevance
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -679,7 +679,7 @@ class OrderingPropertyTests(TestCase):
         # Make API request with ascending order
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get('/api/teachers/teachers/?ordering=employee_id')
+        response = client.get('/api/v1/teachers/teachers/?ordering=employee_id')
         
         # Verify ordering
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -687,7 +687,7 @@ class OrderingPropertyTests(TestCase):
         self.assertEqual(result_ids, sorted(result_ids))
         
         # Make API request with descending order
-        response = client.get('/api/teachers/teachers/?ordering=-employee_id')
+        response = client.get('/api/v1/teachers/teachers/?ordering=-employee_id')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         result_ids = [r['employee_id'] for r in response.data['results']]
         self.assertEqual(result_ids, sorted(result_ids, reverse=True))
@@ -774,7 +774,7 @@ class MultipleFilterPropertyTests(TestCase):
         client = APIClient()
         client.force_authenticate(user=admin)
         response = client.get(
-            f'/api/teachers/teachers/?rank={rank}&contract_type={contract_type}'
+            f'/api/v1/teachers/teachers/?rank={rank}&contract_type={contract_type}'
         )
         
         # Verify multiple filter combination
@@ -826,13 +826,13 @@ class TeacherCoursePaginationPropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Create academic year and semester
         academic_year = AcademicYear.objects.create(
@@ -842,7 +842,7 @@ class TeacherCoursePaginationPropertyTests(TestCase):
         )
         semester = Semester.objects.create(
             academic_year=academic_year,
-            semester_type='FALL',
+            semester_type='S1',
             start_date=date(2023, 9, 1),
             end_date=date(2024, 1, 31)
         )
@@ -881,7 +881,7 @@ class TeacherCoursePaginationPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get('/api/teachers/assignments/')
+        response = client.get('/api/v1/teachers/assignments/')
         
         # Verify pagination
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -927,13 +927,13 @@ class TeacherCourseCreatePropertyTests(TestCase):
             code='TD',
             faculty=faculty
         )
-        level = Level.objects.create(name='L1', order=1)
+        level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         program = Program.objects.create(
             name='Test Program',
             code='TP',
             department=department,
-            level=level
         )
+        program.levels.add(level)
         
         # Create academic year and semester
         academic_year = AcademicYear.objects.create(
@@ -943,7 +943,7 @@ class TeacherCourseCreatePropertyTests(TestCase):
         )
         semester = Semester.objects.create(
             academic_year=academic_year,
-            semester_type='FALL',
+            semester_type='S1',
             start_date=date(year, 9, 1),
             end_date=date(year + 1, 1, 31)
         )
@@ -983,7 +983,7 @@ class TeacherCourseCreatePropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.post('/api/teachers/assignments/', data)
+        response = client.post('/api/v1/teachers/assignments/', data)
         
         # Verify response
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -1058,7 +1058,7 @@ class TeacherContractPaginationPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get('/api/teachers/contracts/')
+        response = client.get('/api/v1/teachers/contracts/')
         
         # Verify pagination
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -1134,7 +1134,7 @@ class TeacherContractCreatePropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.post('/api/teachers/contracts/', data)
+        response = client.post('/api/v1/teachers/contracts/', data)
         
         # Verify response
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -1204,12 +1204,12 @@ class TeacherContractValidationPropertyTests(TestCase):
         # Make API request
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.post('/api/teachers/contracts/', data)
+        response = client.post('/api/v1/teachers/contracts/', data)
         
         # Verify validation error
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertTrue(isinstance(response.data, dict))
-        self.assertIn('end_date', response.data)
+        self.assertIn('end_date', response.data['error']['details'])
 
 
 class TeacherContractFilterPropertyTests(TestCase):
@@ -1290,7 +1290,7 @@ class TeacherContractFilterPropertyTests(TestCase):
         # Make API request with filter for active contracts
         client = APIClient()
         client.force_authenticate(user=admin)
-        response = client.get('/api/teachers/contracts/?status=ACTIVE')
+        response = client.get('/api/v1/teachers/contracts/?status=ACTIVE')
         
         # Verify filter accuracy
         self.assertEqual(response.status_code, status.HTTP_200_OK)

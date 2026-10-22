@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from drf_spectacular.utils import extend_schema_field
 from .models import (
     AcademicYear, Semester, Faculty, Department, Level, Program, Classroom, ProgramFee
 )
@@ -8,24 +9,24 @@ from .models import (
 class AcademicYearListSerializer(serializers.ModelSerializer):
     """List serializer for AcademicYear with basic fields."""
     semesters_count = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = AcademicYear
         fields = ['id', 'name', 'start_date', 'end_date', 'is_current', 'semesters_count']
-    
-    def get_semesters_count(self, obj):
+
+    def get_semesters_count(self, obj) -> int:
         return obj.semesters.count()
 
 
 class AcademicYearDetailSerializer(serializers.ModelSerializer):
     """Detail serializer for AcademicYear with all fields and related data."""
     semesters_count = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = AcademicYear
         fields = '__all__'
-    
-    def get_semesters_count(self, obj):
+
+    def get_semesters_count(self, obj) -> int:
         return obj.semesters.count()
 
 
@@ -45,10 +46,10 @@ class SemesterListSerializer(serializers.ModelSerializer):
     semester_display = serializers.CharField(
         source='get_semester_type_display', read_only=True
     )
-    
+
     class Meta:
         model = Semester
-        fields = ['id', 'academic_year', 'academic_year_name', 'semester_type', 
+        fields = ['id', 'academic_year', 'academic_year_name', 'semester_type',
                   'semester_display', 'start_date', 'end_date', 'is_current']
 
 
@@ -60,7 +61,7 @@ class SemesterDetailSerializer(serializers.ModelSerializer):
     semester_display = serializers.CharField(
         source='get_semester_type_display', read_only=True
     )
-    
+
     class Meta:
         model = Semester
         fields = '__all__'
@@ -84,12 +85,12 @@ class FacultyListSerializer(serializers.ModelSerializer):
         source='dean.get_full_name', read_only=True
     )
     departments_count = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Faculty
         fields = ['id', 'name', 'code', 'dean', 'dean_name', 'departments_count']
-    
-    def get_departments_count(self, obj):
+
+    def get_departments_count(self, obj) -> int:
         return obj.departments.count()
 
 
@@ -100,15 +101,15 @@ class FacultyDetailSerializer(serializers.ModelSerializer):
     )
     departments_count = serializers.SerializerMethodField()
     programs_count = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Faculty
         fields = '__all__'
-    
-    def get_departments_count(self, obj):
+
+    def get_departments_count(self, obj) -> int:
         return obj.departments.count()
-    
-    def get_programs_count(self, obj):
+
+    def get_programs_count(self, obj) -> int:
         return sum(dept.programs.count() for dept in obj.departments.all())
 
 
@@ -123,7 +124,7 @@ class FacultySerializer(serializers.ModelSerializer):
         model = Faculty
         fields = '__all__'
 
-    def get_departments_count(self, obj):
+    def get_departments_count(self, obj) -> int:
         return obj.departments.count()
 
 
@@ -133,13 +134,13 @@ class DepartmentListSerializer(serializers.ModelSerializer):
     faculty_name = serializers.CharField(source='faculty.name', read_only=True)
     head_name = serializers.CharField(source='head.get_full_name', read_only=True)
     programs_count = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Department
-        fields = ['id', 'name', 'code', 'faculty', 'faculty_name', 
+        fields = ['id', 'name', 'code', 'faculty', 'faculty_name',
                   'head', 'head_name', 'programs_count']
-    
-    def get_programs_count(self, obj):
+
+    def get_programs_count(self, obj) -> int:
         return obj.programs.count()
 
 
@@ -151,19 +152,19 @@ class DepartmentDetailSerializer(serializers.ModelSerializer):
     programs_count = serializers.SerializerMethodField()
     teachers_count = serializers.SerializerMethodField()
     students_count = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Department
         fields = '__all__'
-    
-    def get_programs_count(self, obj):
+
+    def get_programs_count(self, obj) -> int:
         return obj.programs.count()
-    
-    def get_teachers_count(self, obj):
+
+    def get_teachers_count(self, obj) -> int:
         return obj.teachers.count()
-    
-    def get_students_count(self, obj):
-        return sum(program.students.filter(status='ACTIVE').count() 
+
+    def get_students_count(self, obj) -> int:
+        return sum(program.students.filter(status='ACTIVE').count()
                    for program in obj.programs.all())
 
 
@@ -178,10 +179,10 @@ class DepartmentSerializer(serializers.ModelSerializer):
         model = Department
         fields = '__all__'
 
-    def get_programs_count(self, obj):
+    def get_programs_count(self, obj) -> int:
         return obj.programs.count()
 
-    def get_teachers_count(self, obj):
+    def get_teachers_count(self, obj) -> int:
         return obj.teachers.count()
 
 
@@ -190,12 +191,12 @@ class LevelListSerializer(serializers.ModelSerializer):
     """List serializer for Level with basic fields."""
     display_name = serializers.CharField(source='get_name_display', read_only=True)
     programs_count = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Level
         fields = ['id', 'name', 'display_name', 'order', 'programs_count']
-    
-    def get_programs_count(self, obj):
+
+    def get_programs_count(self, obj) -> int:
         return obj.programs.count()
 
 
@@ -204,16 +205,16 @@ class LevelDetailSerializer(serializers.ModelSerializer):
     display_name = serializers.CharField(source='get_name_display', read_only=True)
     programs_count = serializers.SerializerMethodField()
     students_count = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Level
         fields = '__all__'
-    
-    def get_programs_count(self, obj):
+
+    def get_programs_count(self, obj) -> int:
         return obj.programs.count()
-    
-    def get_students_count(self, obj):
-        return sum(program.students.filter(status='ACTIVE').count() 
+
+    def get_students_count(self, obj) -> int:
+        return sum(program.students.filter(status='ACTIVE').count()
                    for program in obj.programs.all())
 
 
@@ -231,7 +232,7 @@ class ProgramFeeSerializer(serializers.ModelSerializer):
     """Serializer for ProgramFee."""
     level_name = serializers.CharField(source='level.name', read_only=True)
     academic_year_name = serializers.CharField(source='academic_year.name', read_only=True)
-    
+
     class Meta:
         model = ProgramFee
         fields = ['id', 'level', 'level_name', 'academic_year', 'academic_year_name', 'amount']
@@ -244,23 +245,24 @@ class ProgramListSerializer(serializers.ModelSerializer):
     )
     levels_display = serializers.SerializerMethodField()
     students_count = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Program
-        fields = ['id', 'name', 'code', 'department', 'department_name', 
+        fields = ['id', 'name', 'code', 'department', 'department_name',
                   'levels', 'levels_display', 'is_active', 'students_count', 'fees']
-    
-    def get_levels_display(self, obj):
+
+    def get_levels_display(self, obj) -> str:
         return ", ".join([l.get_name_display() for l in obj.levels.all()])
 
-    def get_fees(self, obj):
+    @extend_schema_field(ProgramFeeSerializer(many=True))
+    def get_fees(self, obj) -> list[dict[str, object]]:
         current_year = AcademicYear.objects.filter(is_current=True).first()
         if current_year:
             fees = obj.fees.filter(academic_year=current_year)
             return ProgramFeeSerializer(fees, many=True).data
         return []
 
-    def get_students_count(self, obj):
+    def get_students_count(self, obj) -> int:
         return obj.students.filter(status='ACTIVE').count()
 
 
@@ -271,7 +273,8 @@ class ProgramDetailSerializer(serializers.ModelSerializer):
     )
     fees = serializers.SerializerMethodField()
 
-    def get_fees(self, obj):
+    @extend_schema_field(ProgramFeeSerializer(many=True))
+    def get_fees(self, obj) -> list[dict[str, object]]:
         # Get active or current academic year fees
         # For now, return all fees or filter by current year?
         # Let's return fees for the current academic year if possible
@@ -292,18 +295,18 @@ class ProgramDetailSerializer(serializers.ModelSerializer):
     levels_display = serializers.SerializerMethodField()
     students_count = serializers.SerializerMethodField()
     courses_count = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Program
         fields = '__all__'
-    
-    def get_levels_display(self, obj):
+
+    def get_levels_display(self, obj) -> str:
         return ", ".join([l.get_name_display() for l in obj.levels.all()])
 
-    def get_students_count(self, obj):
+    def get_students_count(self, obj) -> int:
         return obj.students.filter(status='ACTIVE').count()
-    
-    def get_courses_count(self, obj):
+
+    def get_courses_count(self, obj) -> int:
         return obj.courses.count()
 
 
@@ -317,7 +320,7 @@ class ProgramSerializer(serializers.ModelSerializer):
     )
     levels_display = serializers.SerializerMethodField()
     students_count = serializers.SerializerMethodField()
-    
+
     # Write-only field for fees configuration: { "level_id": amount }
     fees_config = serializers.DictField(
         child=serializers.DecimalField(max_digits=12, decimal_places=2),
@@ -331,13 +334,14 @@ class ProgramSerializer(serializers.ModelSerializer):
         model = Program
         fields = '__all__'
 
-    def get_levels_display(self, obj):
+    def get_levels_display(self, obj) -> str:
         return ", ".join([l.get_name_display() for l in obj.levels.all()])
 
-    def get_students_count(self, obj):
+    def get_students_count(self, obj) -> int:
         return obj.students.filter(status='ACTIVE').count()
 
-    def get_fees(self, obj):
+    @extend_schema_field(ProgramFeeSerializer(many=True))
+    def get_fees(self, obj) -> list[dict[str, object]]:
         current_year = AcademicYear.objects.filter(is_current=True).first()
         if current_year:
             fees = obj.fees.filter(academic_year=current_year)
@@ -359,7 +363,7 @@ class ProgramSerializer(serializers.ModelSerializer):
     def _save_fees(self, program, fees_config):
         if not fees_config:
             return
-            
+
         current_year = AcademicYear.objects.filter(is_current=True).first()
         if not current_year:
             return
@@ -376,16 +380,16 @@ class ProgramSerializer(serializers.ModelSerializer):
 # Classroom Serializers
 class ClassroomListSerializer(serializers.ModelSerializer):
     """List serializer for Classroom with basic fields."""
-    
+
     class Meta:
         model = Classroom
-        fields = ['id', 'name', 'code', 'building', 'capacity', 
+        fields = ['id', 'name', 'code', 'building', 'capacity',
                   'has_projector', 'has_computers', 'is_available']
 
 
 class ClassroomDetailSerializer(serializers.ModelSerializer):
     """Detail serializer for Classroom with all fields."""
-    
+
     class Meta:
         model = Classroom
         fields = '__all__'

@@ -8,7 +8,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         self.stdout.write("Fixing student balances...")
-        
+
         # Get current academic year
         try:
             current_year = AcademicYear.objects.get(is_current=True)
@@ -20,10 +20,10 @@ class Command(BaseCommand):
         # Get all students enrolled in current year
         students = Student.objects.filter(enrollments__academic_year=current_year, enrollments__is_active=True).distinct()
         self.stdout.write(f"Total enrolled students in current year: {students.count()}")
-        
+
         count = 0
         skipped = 0
-        
+
         for student in students:
             # Check if balance exists
             if not StudentBalance.objects.filter(student=student, academic_year=current_year).exists():
@@ -40,5 +40,5 @@ class Command(BaseCommand):
                     self.stdout.write(self.style.WARNING(f"Student {student} has no program!"))
             else:
                 skipped += 1
-                
+
         self.stdout.write(self.style.SUCCESS(f"Created {count} StudentBalance records (Skipped {skipped})"))

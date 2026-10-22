@@ -69,10 +69,10 @@ class TeacherDetailSerializer(serializers.ModelSerializer):
         model = Teacher
         fields = '__all__'
     
-    def get_courses_count(self, obj):
+    def get_courses_count(self, obj) -> int:
         return obj.course_assignments.count()
     
-    def get_active_contracts_count(self, obj):
+    def get_active_contracts_count(self, obj) -> int:
         return obj.contracts.filter(status='ACTIVE').count()
 
 

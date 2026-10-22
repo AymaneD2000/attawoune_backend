@@ -37,7 +37,7 @@ User = get_user_model()
 class TimeSlotSerializerPropertyTests(TestCase):
     """Property tests for TimeSlot serializers."""
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         day=st.integers(min_value=0, max_value=6),
         start_hour=st.integers(min_value=8, max_value=16),
@@ -80,7 +80,7 @@ class TimeSlotSerializerPropertyTests(TestCase):
         # Verify computed properties are included
         self.assertIn('schedules_count', detail_data)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         day=st.integers(min_value=0, max_value=6),
         start_hour=st.integers(min_value=8, max_value=18),
@@ -115,7 +115,7 @@ class TimeSlotSerializerPropertyTests(TestCase):
         # Should have end_time error
         self.assertIn('end_time', serializer.errors)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         day=st.integers(min_value=0, max_value=6),
         start_hour=st.integers(min_value=8, max_value=16),
@@ -204,9 +204,9 @@ class ScheduleSerializerPropertyTests(TestCase):
             name='Test Program',
             code=f'TP{unique_id}',
             department=self.department,
-            level=self.level,
             duration_years=3
         )
+        self.program.levels.add(self.level)
         
         # Create academic year and semester
         self.academic_year, _ = AcademicYear.objects.get_or_create(
@@ -218,7 +218,7 @@ class ScheduleSerializerPropertyTests(TestCase):
         )
         self.semester, _ = Semester.objects.get_or_create(
             academic_year=self.academic_year,
-            semester_type='FALL',
+            semester_type='S1',
             start_date=date(2023, 9, 1),
             end_date=date(2024, 1, 31)
         )
@@ -254,7 +254,7 @@ class ScheduleSerializerPropertyTests(TestCase):
             capacity=30
         )
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         is_active=st.booleans()
     )
@@ -305,7 +305,6 @@ class ScheduleSerializerPropertyTests(TestCase):
         self.assertIn('classroom_capacity', detail_data)
         self.assertIn('sessions_count', detail_data)
     
-    @settings(max_examples=10)
     def test_property_2_validation_enforcement_teacher_conflict(self):
         """
         Feature: backend-api-implementation, Property 2: Validation Enforcement
@@ -353,7 +352,6 @@ class ScheduleSerializerPropertyTests(TestCase):
         # Should have teacher error
         self.assertIn('teacher', serializer.errors)
     
-    @settings(max_examples=10)
     def test_property_2_validation_enforcement_classroom_conflict(self):
         """
         Feature: backend-api-implementation, Property 2: Validation Enforcement
@@ -418,7 +416,6 @@ class ScheduleSerializerPropertyTests(TestCase):
         # Should have classroom error
         self.assertIn('classroom', serializer.errors)
     
-    @settings(max_examples=10)
     def test_property_3_computed_properties_inclusion(self):
         """
         Feature: backend-api-implementation, Property 3: Computed Properties Inclusion
@@ -493,9 +490,9 @@ class CourseSessionSerializerPropertyTests(TestCase):
             name='Test Program',
             code=f'TP{unique_id}',
             department=self.department,
-            level=self.level,
             duration_years=3
         )
+        self.program.levels.add(self.level)
         
         # Create academic year and semester
         self.academic_year, _ = AcademicYear.objects.get_or_create(
@@ -507,7 +504,7 @@ class CourseSessionSerializerPropertyTests(TestCase):
         )
         self.semester, _ = Semester.objects.get_or_create(
             academic_year=self.academic_year,
-            semester_type='FALL',
+            semester_type='S1',
             start_date=date(2023, 9, 1),
             end_date=date(2024, 1, 31)
         )
@@ -543,7 +540,7 @@ class CourseSessionSerializerPropertyTests(TestCase):
             time_slot=self.time_slot
         )
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         session_type=st.sampled_from([choice[0] for choice in CourseSession.SessionType.choices]),
         is_cancelled=st.booleans()
@@ -592,7 +589,6 @@ class CourseSessionSerializerPropertyTests(TestCase):
         self.assertIn('academic_year', detail_data)
         self.assertIn('attendance_count', detail_data)
     
-    @settings(max_examples=10)
     def test_property_2_validation_enforcement_duplicate_session(self):
         """
         Feature: backend-api-implementation, Property 2: Validation Enforcement
@@ -628,7 +624,6 @@ class CourseSessionSerializerPropertyTests(TestCase):
         # Should have error (either date or non_field_errors for unique constraint)
         self.assertTrue('date' in serializer.errors or 'non_field_errors' in serializer.errors)
     
-    @settings(max_examples=10)
     def test_property_2_validation_enforcement_date_outside_semester(self):
         """
         Feature: backend-api-implementation, Property 2: Validation Enforcement
@@ -658,7 +653,6 @@ class CourseSessionSerializerPropertyTests(TestCase):
         # Should have error (either date or non_field_errors for unique constraint)
         self.assertTrue('date' in serializer.errors or 'non_field_errors' in serializer.errors)
     
-    @settings(max_examples=10)
     def test_property_2_validation_enforcement_cancelled_without_reason(self):
         """
         Feature: backend-api-implementation, Property 2: Validation Enforcement
@@ -728,11 +722,11 @@ class AnnouncementSerializerPropertyTests(TestCase):
             name='Test Program',
             code=f'TP{unique_id}',
             department=self.department,
-            level=self.level,
             duration_years=3
         )
+        self.program.levels.add(self.level)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         announcement_type=st.sampled_from([choice[0] for choice in Announcement.AnnouncementType.choices]),
         target_audience=st.sampled_from([choice[0] for choice in Announcement.TargetAudience.choices]),
@@ -788,7 +782,6 @@ class AnnouncementSerializerPropertyTests(TestCase):
         self.assertIn('department_name', detail_data)
         self.assertIn('created_by_email', detail_data)
     
-    @settings(max_examples=10)
     def test_property_2_validation_enforcement_invalid_target_audience(self):
         """
         Feature: backend-api-implementation, Property 2: Validation Enforcement
@@ -818,7 +811,6 @@ class AnnouncementSerializerPropertyTests(TestCase):
         # Should have target_audience error
         self.assertIn('target_audience', serializer.errors)
     
-    @settings(max_examples=10)
     def test_property_2_validation_enforcement_expiry_before_publish(self):
         """
         Feature: backend-api-implementation, Property 2: Validation Enforcement

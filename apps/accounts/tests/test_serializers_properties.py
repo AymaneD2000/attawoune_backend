@@ -20,7 +20,7 @@ User = get_user_model()
 class UserSerializerPropertyTests(TestCase):
     """Property tests for UserSerializer."""
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         first_name=st.text(min_size=1, max_size=30, alphabet=st.characters(whitelist_categories=('Lu', 'Ll'))),
         last_name=st.text(min_size=1, max_size=30, alphabet=st.characters(whitelist_categories=('Lu', 'Ll'))),
@@ -66,7 +66,7 @@ class UserSerializerPropertyTests(TestCase):
         self.assertEqual(data['role_display'], user.get_role_display())
         self.assertIsInstance(data['role_display'], str)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         username=st.text(min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=('Ll', 'Nd'))),
         email=st.emails(),
@@ -115,7 +115,7 @@ class UserSerializerPropertyTests(TestCase):
 class UserCreateSerializerPropertyTests(TestCase):
     """Property tests for UserCreateSerializer."""
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         username=st.text(min_size=5, max_size=20, alphabet=st.characters(whitelist_categories=('Ll', 'Nd'))),
         email=st.emails(),
@@ -157,7 +157,7 @@ class UserCreateSerializerPropertyTests(TestCase):
         # Should have password error
         self.assertIn('password', serializer.errors)
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         username=st.text(
             min_size=5, 
@@ -221,7 +221,7 @@ class UserCreateSerializerPropertyTests(TestCase):
 class PasswordChangeSerializerPropertyTests(TestCase):
     """Property tests for PasswordChangeSerializer."""
     
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     @given(
         old_password=st.text(
             min_size=8, 

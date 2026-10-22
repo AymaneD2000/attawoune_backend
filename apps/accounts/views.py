@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema
 from .serializers import (
     CurrentUserProfileSerializer, UserSerializer, UserCreateSerializer, UserUpdateSerializer,
     PasswordChangeSerializer, RegisterSerializer
@@ -96,10 +97,12 @@ class CurrentUserView(APIView):
     """View for getting current authenticated user."""
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(responses=UserSerializer)
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
 
+    @extend_schema(request=CurrentUserProfileSerializer, responses=UserSerializer)
     def patch(self, request):
         serializer = CurrentUserProfileSerializer(
             request.user,

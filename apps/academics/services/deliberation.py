@@ -1,10 +1,9 @@
 from decimal import Decimal
 from django.db import transaction
-from django.db.models import Sum, F, Avg
-from apps.students.models import Student, StudentPromotion, Enrollment
-from apps.academics.models import CourseGrade, ReportCard
-from apps.university.models import AcademicYear, Level, ProgramFee
-from apps.finance.models import StudentBalance
+
+from apps.academics.models import ReportCard
+from apps.students.models import StudentPromotion
+from apps.university.models import Level
 
 class DeliberationService:
     @staticmethod
@@ -45,7 +44,7 @@ class DeliberationService:
         if report_s1:
             total_points += report_s1.gpa * report_s1.total_credits
             total_credits += report_s1.total_credits
-        
+
         if report_s2:
             total_points += report_s2.gpa * report_s2.total_credits
             total_credits += report_s2.total_credits
@@ -56,12 +55,12 @@ class DeliberationService:
         # Rule: GPA >= 10 => PROMOTED, else REPEATED
         if annual_gpa >= 10:
             decision = StudentPromotion.PromotionDecision.PROMOTED
-            
+
             # Determine next level
             current_level_order = student.current_level.order
             next_level = Level.objects.filter(order=current_level_order + 1).first()
-            level_to = next_level if next_level else student.current_level 
-            
+            level_to = next_level if next_level else student.current_level
+
             if not next_level:
                 remarks = "Fin de cycle - Diplômable"
             else:
@@ -73,6 +72,12 @@ class DeliberationService:
             remarks = "Redoublement"
 
         # 4. Save Promotion Record
+        #
+        # Deliberation is display-only by design: it records the decision
+        # (promoted / repeated) and the grades. It never creates data in
+        # another academic year — every year's data stays independent.
+        # Transferring students to the next year happens manually through
+        # the re-inscription flow (students.views.reinscription).
         with transaction.atomic():
             promotion, created = StudentPromotion.objects.update_or_create(
                 student=student,
@@ -85,54 +90,5 @@ class DeliberationService:
                     'decision': decision,
                 }
             )
-            
-            # 5. Automatic Enrollment for Next Year
-            if decision in [StudentPromotion.PromotionDecision.PROMOTED, StudentPromotion.PromotionDecision.REPEATED]:
-                # If Promoted, level_to is next level. If Repeated, level_to is current level.
-                # Note: logic above sets level_to correctly for both cases.
-                DeliberationService.enroll_for_next_year(student, academic_year, level_to)
-            
-        return promotion
 
-    @staticmethod
-    def enroll_for_next_year(student, current_year, level_to):
-        """
-        Inscrit automatiquement l'étudiant pour l'année suivante et génère le solde.
-        """
-        # 1. Find next academic year
-        next_year = AcademicYear.objects.filter(
-            start_date__gt=current_year.start_date
-        ).order_by('start_date').first()
-        
-        if not next_year:
-            return  # No next year defined, cannot enroll
-            
-        # 2. Create Enrollment
-        if not Enrollment.objects.filter(student=student, academic_year=next_year).exists():
-            Enrollment.objects.create(
-                student=student,
-                academic_year=next_year,
-                program=student.program,
-                level=level_to,
-                status='ENROLLED'
-            )
-            
-        # 3. Create Student Balance
-        if not StudentBalance.objects.filter(student=student, academic_year=next_year).exists():
-            # Determine fee
-            try:
-                program_fee = ProgramFee.objects.get(
-                    program=student.program,
-                    level=level_to,
-                    academic_year=next_year
-                )
-                amount = program_fee.amount
-            except ProgramFee.DoesNotExist:
-                amount = student.program.tuition_fee
-                
-            StudentBalance.objects.create(
-                student=student,
-                academic_year=next_year,
-                total_due=amount,
-                total_paid=0
-            )
+        return promotion

@@ -66,14 +66,14 @@ class StudentBalanceCustomActionsTestCase(TestCase):
         self.department = Department.objects.create(
             name='Informatique', code='INFO', faculty=self.faculty
         )
-        self.level = Level.objects.create(name='L1', order=1)
+        self.level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         self.program = Program.objects.create(
             name='Licence Informatique',
             code='LINF',
             department=self.department,
-            level=self.level,
             duration_years=3
         )
+        self.program.levels.add(self.level)
         
         # Create students
         self.student1 = Student.objects.create(
@@ -95,20 +95,22 @@ class StudentBalanceCustomActionsTestCase(TestCase):
         )
         
         # Create student balances - one with outstanding, one fully paid
-        self.balance1 = StudentBalance.objects.create(
+        self.balance1, _ = StudentBalance.objects.update_or_create(
             student=self.student1,
             academic_year=self.academic_year,
-            total_tuition=Decimal('500000'),
-            total_paid=Decimal('250000'),
-            balance=Decimal('250000')  # Outstanding balance
+            defaults={
+                'total_due': Decimal('500000'),
+                'total_paid': Decimal('250000'),
+            },
         )
         
-        self.balance2 = StudentBalance.objects.create(
+        self.balance2, _ = StudentBalance.objects.update_or_create(
             student=self.student2,
             academic_year=self.academic_year,
-            total_tuition=Decimal('500000'),
-            total_paid=Decimal('500000'),
-            balance=Decimal('0')  # Fully paid
+            defaults={
+                'total_due': Decimal('500000'),
+                'total_paid': Decimal('500000'),
+            },
         )
         
         self.client = APIClient()
@@ -118,9 +120,10 @@ class StudentBalanceCustomActionsTestCase(TestCase):
         self.client.force_authenticate(user=self.admin_user)
         response = self.client.get('/api/v1/finance/student-balances/outstanding/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('students_with_outstanding', response.data)
-        # Only student1 has outstanding balance
-        self.assertEqual(response.data['students_with_outstanding'], 1)
+        self.assertIn('total_outstanding', response.data)
+        # Only student1 has an outstanding balance.
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['total_outstanding'], Decimal('250000'))
     
     def test_list_student_balances(self):
         """Test listing student balances."""
@@ -169,22 +172,22 @@ class SalaryCustomActionsTestCase(TestCase):
         
         # Create salaries
         self.salary_pending = Salary.objects.create(
-            teacher=self.teacher,
+            employee=self.teacher_user,
             month=1,
             year=2026,
             base_salary=Decimal('350000'),
-            bonus=Decimal('50000'),
+            bonuses=Decimal('50000'),
             deductions=Decimal('25000'),
             net_salary=Decimal('375000'),
             status='PENDING'
         )
         
         self.salary_paid = Salary.objects.create(
-            teacher=self.teacher,
+            employee=self.teacher_user,
             month=12,
             year=2025,
             base_salary=Decimal('350000'),
-            bonus=Decimal('50000'),
+            bonuses=Decimal('50000'),
             deductions=Decimal('25000'),
             net_salary=Decimal('375000'),
             status='PAID',
@@ -198,8 +201,8 @@ class SalaryCustomActionsTestCase(TestCase):
         self.client.force_authenticate(user=self.admin_user)
         response = self.client.get('/api/v1/finance/salaries/pending/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('total_pending_amount', response.data)
-        self.assertEqual(response.data['pending_count'], 1)
+        self.assertEqual(response.data['total_pending'], Decimal('375000'))
+        self.assertEqual(response.data['count'], 1)
     
     def test_pay_salary_action(self):
         """Test the pay custom action."""
@@ -238,27 +241,27 @@ class ExpenseCustomActionsTestCase(TestCase):
             category='UTILITIES',
             description='Facture électricité',
             amount=Decimal('150000'),
-            expense_date=date(2026, 1, 15),
-            approved=True,
-            approved_by=self.admin_user
+            date=date(2026, 1, 15),
+            approved_by=self.admin_user,
+            created_by=self.admin_user,
         )
         
         self.expense2 = Expense.objects.create(
             category='UTILITIES',
             description='Facture eau',
             amount=Decimal('50000'),
-            expense_date=date(2026, 1, 20),
-            approved=True,
-            approved_by=self.admin_user
+            date=date(2026, 1, 20),
+            approved_by=self.admin_user,
+            created_by=self.admin_user,
         )
         
         self.expense3 = Expense.objects.create(
             category='SUPPLIES',
             description='Fournitures bureau',
             amount=Decimal('75000'),
-            expense_date=date(2026, 1, 10),
-            approved=True,
-            approved_by=self.admin_user
+            date=date(2026, 1, 10),
+            approved_by=self.admin_user,
+            created_by=self.admin_user,
         )
         
         self.client = APIClient()
@@ -315,14 +318,14 @@ class TuitionPaymentTestCase(TestCase):
         self.department = Department.objects.create(
             name='Informatique', code='INFO', faculty=self.faculty
         )
-        self.level = Level.objects.create(name='L1', order=1)
+        self.level, _ = Level.objects.get_or_create(name='L1', defaults={'order': 1})
         self.program = Program.objects.create(
             name='Licence Informatique',
             code='LINF',
             department=self.department,
-            level=self.level,
             duration_years=3
         )
+        self.program.levels.add(self.level)
         
         self.student = Student.objects.create(
             user=self.student_user,

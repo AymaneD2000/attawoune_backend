@@ -5,7 +5,6 @@ This module provides:
 - Admin interface
 - JWT Authentication endpoints
 - Versioned API endpoints (/api/v1/)
-- Backward-compatible API endpoints (/api/)
 - API documentation (Swagger/ReDoc)
 """
 
