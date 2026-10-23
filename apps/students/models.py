@@ -76,53 +76,70 @@ class Student(models.Model):
             self.generate_student_id()
         super().save(*args, **kwargs)
 
+    def _student_id_prefix(self, year):
+        """Matricule prefix [FACULTY][YY][YY+1][GENDER][INITIAL] for a start year."""
+        # 1. Faculty Code
+        faculty_code = self.program.department.faculty.code.upper()
+
+        # 2. Academic Year segment (YY + YY+1)
+        yy = year % 100
+        yy_next = (yy + 1) % 100
+        year_str = f"{yy:02d}{yy_next:02d}"
+
+        # 3. Gender (M/F)
+        gender = self.user.gender if hasattr(self.user, 'gender') else 'M'
+
+        # 4. Initial (First letter of First Name)
+        initial = self.user.first_name[0].upper() if self.user.first_name else 'X'
+
+        return f"{faculty_code}{year_str}{gender}{initial}"
+
+    @staticmethod
+    def _next_student_id_sequence(last_student):
+        """Next six-digit sequence after ``last_student`` (or 1 when none)."""
+        if last_student:
+            try:
+                return int(last_student.student_id[-6:]) + 1
+            except ValueError:
+                return 1
+        return 1
+
     def generate_student_id(self):
         """
         Génère un matricule au format: [FACULTY][YY][YY+1][GENDER][INITIAL][SEQ]
         Exemple: FST1920MA007817
         """
-        # 1. Faculty Code
-        faculty_code = self.program.department.faculty.code.upper()
-        
-        # 2. Academic Year (YY + YY+1)
-        # Assuming enrollment_date is set, otherwise use current date
         from django.utils import timezone
         date = self.enrollment_date or timezone.now().date()
         year = date.year
-        # If enrollment is roughly in Sept-Dec, it's the start of year (e.g. 2019 -> 1920)
-        # If Jan-Aug, it belongs to previous start year (e.g. 2020 -> 1920)
-        # However, simplistic approach based on input year:
-        # User said "19 20 is the year of inscription like 2019 - 2020"
-        # Let's take the year of enrollment date as the start year.
-        yy = year % 100
-        yy_next = (yy + 1) % 100
-        year_str = f"{yy:02d}{yy_next:02d}"
-        
-        # 3. Gender (M/F)
-        # Ensure user gender is available
-        gender = self.user.gender if hasattr(self.user, 'gender') else 'M'
-        
-        # 4. Initial (First letter of First Name - User said "A is the first letter of name here Aymane")
-        # Usually name = First Name.
-        initial = self.user.first_name[0].upper() if self.user.first_name else 'X'
-        
-        prefix = f"{faculty_code}{year_str}{gender}{initial}"
-        
-        # 5. Sequence (6 digits)
-        # Find last student with this prefix
+
+        prefix = self._student_id_prefix(year)
         last_student = Student.objects.filter(student_id__startswith=prefix).order_by('-student_id').first()
-        
-        if last_student:
-            # Extract last 6 digits
-            try:
-                last_seq = int(last_student.student_id[-6:])
-                new_seq = last_seq + 1
-            except ValueError:
-                new_seq = 1
-        else:
-            new_seq = 1
-            
-        self.student_id = f"{prefix}{new_seq:06d}"
+        self.student_id = f"{prefix}{self._next_student_id_sequence(last_student):06d}"
+
+    def regenerate_student_id_for_year(self, academic_year):
+        """
+        Regenerate the matricule using the year segment of ``academic_year``
+        (2026 start => ``2627``), keeping faculty/gender/initial and
+        allocating the next available sequence for the new prefix.
+
+        Returns the ``(old_student_id, new_student_id)`` pair. The caller is
+        responsible for running this inside a transaction (the correction
+        service does).
+        """
+        old_student_id = self.student_id
+        prefix = self._student_id_prefix(academic_year.start_date.year)
+        last_student = (
+            Student.objects.select_for_update()
+            .filter(student_id__startswith=prefix)
+            .exclude(pk=self.pk)
+            .order_by('-student_id')
+            .first()
+        )
+        next_sequence = self._next_student_id_sequence(last_student)
+        self.student_id = f"{prefix}{next_sequence:06d}"
+        self.save(update_fields=['student_id', 'updated_at'])
+        return old_student_id, self.student_id
 
     def __str__(self):
         return f"{self.student_id} - {self.user.get_full_name()}"

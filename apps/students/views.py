@@ -7,22 +7,31 @@ This module provides ViewSets for managing student-related data:
 - Attendance: Student attendance records for course sessions
 """
 
+from dataclasses import asdict
+import logging
+from datetime import date
+
 from rest_framework import viewsets, filters, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema
-from apps.core.permissions import IsSecretaryOrAdmin, IsTeacherOrAdmin
+from apps.core.exceptions import APIError
+from apps.core.permissions import IsSecretaryOrAdmin, IsTeacherOrAdmin, IsAdminOrSecretary
 from .models import Student, Enrollment, Attendance
 from .serializers import (
     StudentListSerializer, StudentDetailSerializer, StudentCreateSerializer,
     EnrollmentListSerializer, EnrollmentDetailSerializer, EnrollmentCreateSerializer,
     AttendanceListSerializer, AttendanceDetailSerializer, AttendanceCreateSerializer,
-    AttendanceBulkCreateSerializer
+    AttendanceBulkCreateSerializer,
+    AcademicYearCorrectionRequestSerializer, AcademicYearCorrectionResponseSerializer
 )
 from .services.excel import StudentExcelService
+from .services.year_correction import CorrectionBlocked, correct_student_academic_year
 from django.http import HttpResponse
+
+logger = logging.getLogger(__name__)
 
 
 class StudentViewSet(viewsets.ModelViewSet):
@@ -81,10 +90,13 @@ class StudentViewSet(viewsets.ModelViewSet):
         Return appropriate permissions based on action.
 
         - Read operations: All authenticated users (with role-based filtering)
-        - Write operations: Admin and Secretary only
+        - Academic-year correction: Admin and Secretary only (deans excluded)
+        - Other write operations: Admin, Secretary and Dean
         """
         if self.action in ['list', 'retrieve', 'enrollments', 'grades', 'attendance_stats']:
             return [IsAuthenticated()]
+        if self.action == 'correct_academic_year':
+            return [IsAuthenticated(), IsAdminOrSecretary()]
         return [IsAuthenticated(), IsSecretaryOrAdmin()]
 
     def perform_update(self, serializer):
@@ -250,6 +262,7 @@ class StudentViewSet(viewsets.ModelViewSet):
 
         Query parameters:
         - search: filter by student id or name
+        - enrollment_date: filter by the student's enrollment date (YYYY-MM-DD)
         """
         from django.db.models import Q
         from apps.university.models import AcademicYear
@@ -279,6 +292,14 @@ class StudentViewSet(viewsets.ModelViewSet):
                 | Q(user__first_name__icontains=search)
                 | Q(user__last_name__icontains=search)
             )
+
+        enrollment_date_value = request.query_params.get('enrollment_date', '').strip()
+        if enrollment_date_value:
+            try:
+                enrollment_date_filter = date.fromisoformat(enrollment_date_value)
+            except ValueError:
+                raise APIError(message="Date d'inscription invalide.")
+            candidates = candidates.filter(enrollment_date=enrollment_date_filter)
 
         results = []
         for student in candidates[:50]:
@@ -568,6 +589,42 @@ class StudentViewSet(viewsets.ModelViewSet):
             "success_count": success_count,
             "errors": errors
         }, status=status.HTTP_201_CREATED if success_count > 0 else status.HTTP_400_BAD_REQUEST)
+
+    @extend_schema(
+        request=AcademicYearCorrectionRequestSerializer,
+        responses={status.HTTP_200_OK: AcademicYearCorrectionResponseSerializer},
+    )
+    @action(detail=False, methods=['post'], url_path='correct-academic-year')
+    def correct_academic_year(self, request):
+        """Bulk-correct newly created students registered in the wrong academic year."""
+        payload = AcademicYearCorrectionRequestSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        data = payload.validated_data
+
+        transferred, blocked = [], []
+        for student_id in data['student_ids']:
+            try:
+                result = correct_student_academic_year(
+                    student_id=student_id,
+                    source_year=data['source_academic_year'],
+                    target_year=data['target_academic_year'],
+                    enrollment_date=data['enrollment_date'],
+                )
+                transferred.append(asdict(result))
+            except CorrectionBlocked as exc:
+                item = {'student': student_id}
+                existing = Student.objects.filter(pk=student_id).first()
+                if existing is not None:
+                    item['student_id'] = existing.student_id
+                item['reason'] = exc.reason
+                blocked.append(item)
+            except Exception:
+                logger.exception('Academic-year correction failed for student %s', student_id)
+                blocked.append({
+                    'student': student_id,
+                    'reason': "La correction a échoué; aucune donnée de cet étudiant n'a été modifiée.",
+                })
+        return Response({'transferred': transferred, 'blocked': blocked})
 
 class EnrollmentViewSet(viewsets.ModelViewSet):
     """

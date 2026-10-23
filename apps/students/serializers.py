@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_field
+from apps.university.models import AcademicYear
 from .models import Student, Enrollment, Attendance
 
 
@@ -370,3 +371,48 @@ class AttendanceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Attendance
         fields = '__all__'
+
+
+# Academic-year correction serializers
+
+class AcademicYearCorrectionRequestSerializer(serializers.Serializer):
+    """Request payload for the bulk academic-year correction action."""
+    student_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        allow_empty=False,
+    )
+    source_academic_year = serializers.PrimaryKeyRelatedField(
+        queryset=AcademicYear.objects.all(),
+    )
+    target_academic_year = serializers.PrimaryKeyRelatedField(
+        queryset=AcademicYear.objects.all(),
+    )
+    enrollment_date = serializers.DateField()
+
+    def validate_student_ids(self, values):
+        return list(dict.fromkeys(values))
+
+    def validate(self, attrs):
+        if attrs['source_academic_year'] == attrs['target_academic_year']:
+            raise serializers.ValidationError({
+                'target_academic_year': "L'année cible doit être différente de l'année source."
+            })
+        return attrs
+
+
+class AcademicYearCorrectionTransferredItemSerializer(serializers.Serializer):
+    student = serializers.IntegerField()
+    name = serializers.CharField()
+    old_student_id = serializers.CharField()
+    new_student_id = serializers.CharField()
+
+
+class AcademicYearCorrectionBlockedItemSerializer(serializers.Serializer):
+    student = serializers.IntegerField()
+    student_id = serializers.CharField(required=False)
+    reason = serializers.CharField()
+
+
+class AcademicYearCorrectionResponseSerializer(serializers.Serializer):
+    transferred = AcademicYearCorrectionTransferredItemSerializer(many=True)
+    blocked = AcademicYearCorrectionBlockedItemSerializer(many=True)

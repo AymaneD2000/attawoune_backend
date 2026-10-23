@@ -115,6 +115,30 @@ class ReinscriptionTests(TestCase):
             status='ENROLLED',
         )
 
+        # Student C: another previous-year candidate, different enrollment date.
+        student_user_c = User.objects.create_user(
+            username='student_rein_d',
+            email='rein_d@test.com',
+            password='testpass123',
+            first_name='Mariam',
+            last_name='Sangare',
+            role='STUDENT',
+        )
+        self.student_c = Student.objects.create(
+            user=student_user_c,
+            student_id='REIN-C',
+            program=self.program,
+            current_level=self.level_l1,
+            enrollment_date=date(2025, 10, 13),
+        )
+        Enrollment.objects.create(
+            student=self.student_c,
+            academic_year=self.previous_year,
+            program=self.program,
+            level=self.level_l1,
+            status='ENROLLED',
+        )
+
         self.client = APIClient()
 
     def _as_secretary(self):
@@ -143,6 +167,29 @@ class ReinscriptionTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['id'], self.student_a.id)
+
+    def test_candidates_can_be_filtered_by_enrollment_date(self):
+        self._as_secretary()
+        response = self.client.get('/api/v1/students/reinscription-candidates/?enrollment_date=2024-09-01')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [candidate['id'] for candidate in response.data]
+        self.assertEqual(ids, [self.student_a.id])
+
+        response = self.client.get('/api/v1/students/reinscription-candidates/?enrollment_date=2025-10-13')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [candidate['id'] for candidate in response.data]
+        self.assertEqual(ids, [self.student_c.id])
+
+    def test_candidates_date_filter_without_match_is_empty(self):
+        self._as_secretary()
+        response = self.client.get('/api/v1/students/reinscription-candidates/?enrollment_date=2030-01-01')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, [])
+
+    def test_candidates_invalid_enrollment_date_is_rejected(self):
+        self._as_secretary()
+        response = self.client.get('/api/v1/students/reinscription-candidates/?enrollment_date=not-a-date')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_candidates_forbidden_for_non_secretary(self):
         teacher_user = User.objects.create_user(

@@ -133,6 +133,21 @@ class IsFinanceViewer(BasePermission):
         return False
 
 
+class IsAdminOrSecretary(BasePermission):
+    """
+    Allow access to admins and secretaries only.
+
+    Used for sensitive correction workflows (e.g. academic-year correction)
+    where deans must not act.
+    """
+
+    def has_permission(self, request, view):
+        return (
+            request.user.is_authenticated and
+            request.user.role in ['ADMIN', 'SECRETARY']
+        )
+
+
 class IsSecretaryOrAdmin(BasePermission):
     """
     Allow access to secretaries, deans, and admins.
