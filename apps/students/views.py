@@ -262,7 +262,8 @@ class StudentViewSet(viewsets.ModelViewSet):
 
         Query parameters:
         - search: filter by student id or name
-        - enrollment_date: filter by the student's enrollment date (YYYY-MM-DD)
+        - created_date: filter by the student account creation date (YYYY-MM-DD),
+          i.e. the "Créé le" date shown on the users list
         """
         from django.db.models import Q
         from apps.university.models import AcademicYear
@@ -293,13 +294,15 @@ class StudentViewSet(viewsets.ModelViewSet):
                 | Q(user__last_name__icontains=search)
             )
 
-        enrollment_date_value = request.query_params.get('enrollment_date', '').strip()
-        if enrollment_date_value:
+        created_date_value = request.query_params.get('created_date', '').strip()
+        if created_date_value:
             try:
-                enrollment_date_filter = date.fromisoformat(enrollment_date_value)
+                created_date_filter = date.fromisoformat(created_date_value)
             except ValueError:
-                raise APIError(message="Date d'inscription invalide.")
-            candidates = candidates.filter(enrollment_date=enrollment_date_filter)
+                raise APIError(message="Date d'ajout invalide.")
+            # Match the account creation date ("Créé le"), i.e. the day the
+            # student was added to the system — not the profile enrollment date.
+            candidates = candidates.filter(user__created_at__date=created_date_filter)
 
         results = []
         for student in candidates[:50]:

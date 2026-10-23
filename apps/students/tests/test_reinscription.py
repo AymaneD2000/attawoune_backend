@@ -7,7 +7,7 @@ active year, which creates the enrollment + the year's financial balance
 and syncs the student profile snapshot.
 """
 
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from django.test import TestCase
@@ -139,6 +139,14 @@ class ReinscriptionTests(TestCase):
             status='ENROLLED',
         )
 
+        # Pin the account creation dates ("Créé le") so the created-date filter is testable.
+        User.objects.filter(pk=self.student_user_a.pk).update(
+            created_at=datetime(2026, 10, 13, 8, 0, 0, tzinfo=timezone.utc)
+        )
+        User.objects.filter(pk=student_user_c.pk).update(
+            created_at=datetime(2026, 10, 15, 9, 0, 0, tzinfo=timezone.utc)
+        )
+
         self.client = APIClient()
 
     def _as_secretary(self):
@@ -168,27 +176,27 @@ class ReinscriptionTests(TestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['id'], self.student_a.id)
 
-    def test_candidates_can_be_filtered_by_enrollment_date(self):
+    def test_candidates_can_be_filtered_by_created_date(self):
         self._as_secretary()
-        response = self.client.get('/api/v1/students/reinscription-candidates/?enrollment_date=2024-09-01')
+        response = self.client.get('/api/v1/students/reinscription-candidates/?created_date=2026-10-13')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         ids = [candidate['id'] for candidate in response.data]
         self.assertEqual(ids, [self.student_a.id])
 
-        response = self.client.get('/api/v1/students/reinscription-candidates/?enrollment_date=2025-10-13')
+        response = self.client.get('/api/v1/students/reinscription-candidates/?created_date=2026-10-15')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         ids = [candidate['id'] for candidate in response.data]
         self.assertEqual(ids, [self.student_c.id])
 
-    def test_candidates_date_filter_without_match_is_empty(self):
+    def test_candidates_created_date_filter_without_match_is_empty(self):
         self._as_secretary()
-        response = self.client.get('/api/v1/students/reinscription-candidates/?enrollment_date=2030-01-01')
+        response = self.client.get('/api/v1/students/reinscription-candidates/?created_date=2030-01-01')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data, [])
 
-    def test_candidates_invalid_enrollment_date_is_rejected(self):
+    def test_candidates_invalid_created_date_is_rejected(self):
         self._as_secretary()
-        response = self.client.get('/api/v1/students/reinscription-candidates/?enrollment_date=not-a-date')
+        response = self.client.get('/api/v1/students/reinscription-candidates/?created_date=not-a-date')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_candidates_forbidden_for_non_secretary(self):
