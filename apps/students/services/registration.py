@@ -64,7 +64,8 @@ def _ensure_balance_for_year(student, academic_year, program, level):
         academic_year=academic_year,
         defaults={'total_due': amount, 'total_paid': Decimal('0.00')},
     )
-    if not created and balance.total_due != amount:
+    # Never rewrite the amount due of a finished academic year.
+    if not created and academic_year.is_current and balance.total_due != amount:
         balance.total_due = amount
         balance.save(update_fields=['total_due', 'updated_at'])
 

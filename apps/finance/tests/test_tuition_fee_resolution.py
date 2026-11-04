@@ -107,3 +107,89 @@ class TuitionFeeResolutionTests(TestCase):
         balance.refresh_from_db()
         self.assertEqual(balance.total_due, Decimal('125000.00'))
         self.assertEqual(balance.total_paid, Decimal('10000.00'))
+
+    def test_saving_program_fees_updates_existing_balances(self):
+        l1_student = self._student(self.l1)
+        register_student_in_year(l1_student, self.year, level=self.l1, program=self.program)
+        l2_student = self._student(self.l2)
+        register_student_in_year(l2_student, self.year, level=self.l2, program=self.program)
+        StudentBalance.objects.filter(student=l1_student).update(total_paid=Decimal('20000.00'))
+
+        client = APIClient()
+        client.force_authenticate(self.admin)
+        response = client.patch(
+            f'/api/v1/university/programs/{self.program.id}/',
+            {'fees_config': {str(self.l1.id): '100000.00', str(self.l2.id): '150000.00'}},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+
+        l1_balance = StudentBalance.objects.get(student=l1_student, academic_year=self.year)
+        l2_balance = StudentBalance.objects.get(student=l2_student, academic_year=self.year)
+        self.assertEqual(l1_balance.total_due, Decimal('100000.00'))
+        self.assertEqual(l1_balance.total_paid, Decimal('20000.00'))
+        self.assertEqual(l2_balance.total_due, Decimal('150000.00'))
+
+        # The Recouvrement list reads the stored balances.
+        response = client.get('/api/v1/finance/student-balances/outstanding/')
+        dues = {row['student']: Decimal(str(row['total_due'])) for row in response.data['results']}
+        self.assertEqual(dues[l1_student.id], Decimal('100000.00'))
+        self.assertEqual(dues[l2_student.id], Decimal('150000.00'))
+
+    def _next_year(self):
+        self.year.is_current = False
+        self.year.save(update_fields=['is_current'])
+        return AcademicYear.objects.create(
+            name='2096-2097', start_date=date(2096, 9, 1),
+            end_date=date(2097, 7, 1), is_current=True,
+        )
+
+    def test_level_fees_carry_over_to_the_next_academic_year(self):
+        next_year = self._next_year()
+        # No fee row was saved for the new year: the L1 fee carries over.
+        self.assertEqual(resolve_tuition_due(self.program, self.l1, next_year), Decimal('125000.00'))
+
+        client = APIClient()
+        client.force_authenticate(self.admin)
+        response = client.get('/api/v1/university/programs/')
+        item = next(p for p in response.data['results'] if p['id'] == self.program.id)
+        self.assertEqual(
+            {f['level']: f['amount'] for f in item['fees']},
+            {self.l1.id: '125000.00'},
+        )
+
+    def test_finished_year_balance_is_frozen(self):
+        student = self._student(self.l1)
+        register_student_in_year(student, self.year, level=self.l1, program=self.program)
+        StudentBalance.objects.filter(student=student, academic_year=self.year).update(
+            total_due=Decimal('300000.00'),
+        )
+        self._next_year()
+
+        # Fees change during the new year…
+        client = APIClient()
+        client.force_authenticate(self.admin)
+        response = client.patch(
+            f'/api/v1/university/programs/{self.program.id}/',
+            {'fees_config': {str(self.l1.id): '90000.00'}}, format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+
+        # …and a late payment is recorded for the finished year.
+        response = client.post('/api/v1/finance/tuition-payments/', {
+            'student': student.id,
+            'academic_year': self.year.id,
+            'amount': '40000.00',
+            'payment_method': 'CASH',
+            'payment_date': '2096-10-01',
+        })
+        self.assertEqual(response.status_code, 201, response.data)
+
+        old_balance = StudentBalance.objects.get(student=student, academic_year=self.year)
+        self.assertEqual(old_balance.total_due, Decimal('300000.00'))
+        self.assertEqual(old_balance.total_paid, Decimal('40000.00'))
+        # The old year's fee row is untouched; the new price is stored for the new year.
+        self.assertEqual(
+            ProgramFee.objects.get(program=self.program, level=self.l1, academic_year=self.year).amount,
+            Decimal('125000.00'),
+        )

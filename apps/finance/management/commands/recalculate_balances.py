@@ -8,8 +8,9 @@ from apps.university.models import AcademicYear
 
 class Command(BaseCommand):
     help = (
-        "Recalculate total_due of student balances from the configured fees "
-        "(per-level fee, else program yearly fee). Amounts paid are never changed."
+        "Recalculate total_due of current-year student balances from the configured "
+        "fees (per-level fee, else program yearly fee). Amounts paid are never "
+        "changed and finished academic years are never touched."
     )
 
     def add_arguments(self, parser):
@@ -17,18 +18,12 @@ class Command(BaseCommand):
             '--dry-run', action='store_true',
             help="Show what would change without saving anything.",
         )
-        parser.add_argument(
-            '--year', type=int, default=None,
-            help="Academic year id (defaults to the current academic year).",
-        )
 
-    def handle(self, *args, dry_run=False, year=None, **options):
-        if year is not None:
-            academic_year = AcademicYear.objects.filter(pk=year).first()
-        else:
-            academic_year = AcademicYear.objects.filter(is_current=True).first()
+    def handle(self, *args, dry_run=False, **options):
+        # Only the current academic year: finished years keep their amounts.
+        academic_year = AcademicYear.objects.filter(is_current=True).first()
         if academic_year is None:
-            raise CommandError("Academic year not found.")
+            raise CommandError("No current academic year.")
 
         self.stdout.write(f"Academic year: {academic_year.name}{' (dry run)' if dry_run else ''}")
 

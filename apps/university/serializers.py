@@ -1,8 +1,10 @@
+from django.db import transaction
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_field
 from .models import (
     AcademicYear, Semester, Faculty, Department, Level, Program, Classroom, ProgramFee
 )
+from apps.finance.services.fees import effective_program_fees, sync_program_balances
 
 
 # AcademicYear Serializers
@@ -266,8 +268,7 @@ class ProgramListSerializer(serializers.ModelSerializer):
     def get_fees(self, obj) -> list[dict[str, object]]:
         current_year = self._current_year()
         if current_year:
-            fees = obj.fees.filter(academic_year=current_year).select_related('level', 'academic_year')
-            return ProgramFeeSerializer(fees, many=True).data
+            return ProgramFeeSerializer(effective_program_fees(obj, current_year), many=True).data
         return []
 
     def get_students_count(self, obj) -> int:
@@ -288,8 +289,7 @@ class ProgramDetailSerializer(serializers.ModelSerializer):
         # Let's return fees for the current academic year if possible
         current_year = AcademicYear.objects.filter(is_current=True).first()
         if current_year:
-            fees = obj.fees.filter(academic_year=current_year)
-            return ProgramFeeSerializer(fees, many=True).data
+            return ProgramFeeSerializer(effective_program_fees(obj, current_year), many=True).data
         return []
     department_code = serializers.CharField(
         source='department.code', read_only=True
@@ -352,8 +352,7 @@ class ProgramSerializer(serializers.ModelSerializer):
     def get_fees(self, obj) -> list[dict[str, object]]:
         current_year = AcademicYear.objects.filter(is_current=True).first()
         if current_year:
-            fees = obj.fees.filter(academic_year=current_year)
-            return ProgramFeeSerializer(fees, many=True).data
+            return ProgramFeeSerializer(effective_program_fees(obj, current_year), many=True).data
         return []
 
     def create(self, validated_data):
@@ -364,8 +363,19 @@ class ProgramSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         fees_config = validated_data.pop('fees_config', {})
-        program = super().update(instance, validated_data)
-        self._save_fees(program, fees_config)
+        tuition_changed = (
+            'tuition_fee' in validated_data
+            and validated_data['tuition_fee'] != instance.tuition_fee
+        )
+        with transaction.atomic():
+            program = super().update(instance, validated_data)
+            self._save_fees(program, fees_config)
+            if fees_config or tuition_changed:
+                # Keep stored balances (Recouvrement, dashboard) in line with
+                # the new fees for the year they apply to.
+                current_year = AcademicYear.objects.filter(is_current=True).first()
+                if current_year:
+                    sync_program_balances(program, current_year)
         return program
 
     def _save_fees(self, program, fees_config):

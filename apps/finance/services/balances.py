@@ -22,6 +22,7 @@ def reconcile_student_balance(student, academic_year):
         academic_year_id=academic_year_id,
     ).first()
 
+    created = False
     if balance is None:
         try:
             balance = StudentBalance.objects.create(
@@ -30,6 +31,7 @@ def reconcile_student_balance(student, academic_year):
                 total_due=Decimal('0.00'),
                 total_paid=Decimal('0.00'),
             )
+            created = True
         except IntegrityError:
             balance = StudentBalance.objects.select_for_update().get(
                 student_id=student_id,
@@ -43,7 +45,10 @@ def reconcile_student_balance(student, academic_year):
     ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
     # Resolve objects through the locked row to avoid extra caller assumptions.
-    balance.total_due = _total_due(balance.student, balance.academic_year)
+    # The amount due of a finished academic year is frozen: only the current
+    # year (or a balance created just now) follows the configured fees.
+    if created or balance.academic_year.is_current:
+        balance.total_due = _total_due(balance.student, balance.academic_year)
     balance.total_paid = total_paid
     balance.save(update_fields=['total_due', 'total_paid', 'updated_at'])
     return balance
