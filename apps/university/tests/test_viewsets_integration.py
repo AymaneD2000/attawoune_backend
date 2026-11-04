@@ -219,6 +219,27 @@ class UniversityViewSetIntegrationTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['results'][0]['name'], 'Mathematics')
     
+    def test_program_list_exposes_fees_for_editing(self):
+        """The program list must return per-level fees and editable fields so the
+        edit form can show the previous values."""
+        from apps.university.models import ProgramFee
+
+        ProgramFee.objects.create(
+            program=self.program, level=self.level,
+            academic_year=self.academic_year, amount='150000.00',
+        )
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get('/api/v1/university/programs/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        item = next(p for p in response.data['results'] if p['id'] == self.program.id)
+
+        self.assertEqual(item['duration_years'], 1)
+        self.assertEqual(item['description'], self.program.description)
+        self.assertEqual(item['tuition_fee'], '1000.00')
+        self.assertEqual(len(item['fees']), 1)
+        self.assertEqual(item['fees'][0]['level'], self.level.id)
+        self.assertEqual(item['fees'][0]['amount'], '150000.00')
+
     def test_program_viewset_permissions(self):
         """Test ProgramViewSet permissions."""
         # Admin can create

@@ -245,20 +245,28 @@ class ProgramListSerializer(serializers.ModelSerializer):
     )
     levels_display = serializers.SerializerMethodField()
     students_count = serializers.SerializerMethodField()
+    fees = serializers.SerializerMethodField()
 
     class Meta:
         model = Program
         fields = ['id', 'name', 'code', 'department', 'department_name',
-                  'levels', 'levels_display', 'is_active', 'students_count', 'fees']
+                  'levels', 'levels_display', 'duration_years', 'description',
+                  'tuition_fee', 'is_active', 'students_count', 'fees']
 
     def get_levels_display(self, obj) -> str:
         return ", ".join([l.get_name_display() for l in obj.levels.all()])
 
+    def _current_year(self):
+        # Cache the current academic year lookup across all rows of the list.
+        if '_current_year' not in self.context:
+            self.context['_current_year'] = AcademicYear.objects.filter(is_current=True).first()
+        return self.context['_current_year']
+
     @extend_schema_field(ProgramFeeSerializer(many=True))
     def get_fees(self, obj) -> list[dict[str, object]]:
-        current_year = AcademicYear.objects.filter(is_current=True).first()
+        current_year = self._current_year()
         if current_year:
-            fees = obj.fees.filter(academic_year=current_year)
+            fees = obj.fees.filter(academic_year=current_year).select_related('level', 'academic_year')
             return ProgramFeeSerializer(fees, many=True).data
         return []
 
