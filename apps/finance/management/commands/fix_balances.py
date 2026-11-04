@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand
 from apps.students.models import Student
 from apps.finance.models import StudentBalance
 from apps.university.models import AcademicYear
+from apps.finance.services.fees import resolve_student_tuition_due
 
 class Command(BaseCommand):
     help = 'Fixes student balances for enrolled students in current academic year'
@@ -32,7 +33,7 @@ class Command(BaseCommand):
                     StudentBalance.objects.create(
                         student=student,
                         academic_year=current_year,
-                        total_due=student.program.tuition_fee,
+                        total_due=resolve_student_tuition_due(student, current_year),
                         total_paid=0
                     )
                     count += 1

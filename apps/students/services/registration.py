@@ -15,7 +15,8 @@ from decimal import Decimal
 from django.db import transaction
 
 from apps.finance.models import StudentBalance
-from apps.university.models import AcademicYear, ProgramFee
+from apps.finance.services.fees import resolve_tuition_due
+from apps.university.models import AcademicYear
 
 from apps.students.models import Enrollment
 
@@ -55,26 +56,17 @@ def register_student_in_year(student, academic_year, level=None, program=None, s
 
 
 def _ensure_balance_for_year(student, academic_year, program, level):
-    """Create the year's financial balance when missing (exact fee per level/year)."""
-    if StudentBalance.objects.filter(student=student, academic_year=academic_year).exists():
-        return
-
-    try:
-        program_fee = ProgramFee.objects.get(
-            program=program,
-            level=level,
-            academic_year=academic_year,
-        )
-        amount = program_fee.amount
-    except ProgramFee.DoesNotExist:
-        amount = program.tuition_fee or Decimal('0.00')
-
-    StudentBalance.objects.create(
+    """Create (or align) the year's financial balance with the exact fee for
+    the enrolled program/level. Payments already recorded are kept."""
+    amount = resolve_tuition_due(program, level, academic_year)
+    balance, created = StudentBalance.objects.get_or_create(
         student=student,
         academic_year=academic_year,
-        total_due=amount,
-        total_paid=Decimal('0.00'),
+        defaults={'total_due': amount, 'total_paid': Decimal('0.00')},
     )
+    if not created and balance.total_due != amount:
+        balance.total_due = amount
+        balance.save(update_fields=['total_due', 'updated_at'])
 
 
 def register_in_current_year(student, level=None, program=None, status='ENROLLED'):

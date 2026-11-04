@@ -3,33 +3,12 @@ from decimal import Decimal
 from django.db import IntegrityError, transaction
 from django.db.models import Sum
 
-from apps.students.models import Enrollment
-
-from ..models import StudentBalance, TuitionFee, TuitionPayment
+from ..models import StudentBalance, TuitionPayment
+from .fees import resolve_student_tuition_due
 
 
 def _total_due(student, academic_year):
-    enrollment = Enrollment.objects.filter(
-        student=student,
-        academic_year=academic_year,
-        is_active=True,
-    ).select_related('level').first()
-    level = enrollment.level if enrollment else student.current_level
-
-    tuition_fee = TuitionFee.objects.filter(
-        program=student.program,
-        academic_year=academic_year,
-        level=level,
-    ).first()
-    if tuition_fee is None:
-        tuition_fee = TuitionFee.objects.filter(
-            program=student.program,
-            academic_year=academic_year,
-            level__isnull=True,
-        ).first()
-    if tuition_fee is not None:
-        return tuition_fee.amount
-    return getattr(student.program, 'tuition_fee', Decimal('0.00')) or Decimal('0.00')
+    return resolve_student_tuition_due(student, academic_year)
 
 
 @transaction.atomic

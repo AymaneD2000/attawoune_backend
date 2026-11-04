@@ -3,6 +3,7 @@ from django.dispatch import receiver
 from apps.students.models import Student
 from apps.finance.models import StudentBalance
 from apps.university.models import AcademicYear
+from apps.finance.services.fees import resolve_tuition_due
 
 @receiver(post_save, sender=Student)
 def create_student_balance(sender, instance, created, **kwargs):
@@ -17,7 +18,9 @@ def create_student_balance(sender, instance, created, **kwargs):
                 student=instance,
                 academic_year=current_year,
                 defaults={
-                    'total_due': instance.program.tuition_fee,
+                    'total_due': resolve_tuition_due(
+                        instance.program, instance.current_level, current_year
+                    ),
                     'total_paid': 0
                 }
             )

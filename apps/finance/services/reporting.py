@@ -1,5 +1,6 @@
 from django.db.models import Sum
-from apps.finance.models import TuitionPayment, TuitionFee
+from apps.finance.models import TuitionPayment
+from apps.finance.services.fees import resolve_tuition_due
 from apps.students.models import Enrollment
 
 class FinancialReportService:
@@ -44,29 +45,7 @@ class FinancialReportService:
             # Determine level for fee lookup
             level = enrollment.level if enrollment else student.current_level
 
-            # 1. Try to get level-specific fee for the year
-            if academic_year:
-                # First try with level
-                fee_config = TuitionFee.objects.filter(
-                    program=program,
-                    academic_year=academic_year,
-                    level=level
-                ).first()
-
-                # If not found, try without level (generic program fee)
-                if not fee_config:
-                    fee_config = TuitionFee.objects.filter(
-                        program=program,
-                        academic_year=academic_year,
-                        level__isnull=True
-                    ).first()
-
-                if fee_config:
-                    total_due = fee_config.amount
-
-            # 2. Fallback to program default fee
-            if total_due == 0:
-                total_due = program.tuition_fee
+            total_due = resolve_tuition_due(program, level, academic_year)
 
         balance = total_due - total_paid
 
